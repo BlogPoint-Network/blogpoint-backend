@@ -1,0 +1,2 @@
+# Backend
+Бекенд приложения BlogPoint
