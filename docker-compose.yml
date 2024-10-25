@@ -18,9 +18,27 @@ services:
     container_name: db
     volumes:
       - ./sql:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
 
   adminer:
     image: adminer
     restart: always
     ports:
-      - 8080:8080
+      - "8080:8080"
+
+  go:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=test
+      - DB_NAME=test
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
