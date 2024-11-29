@@ -122,17 +122,37 @@ func User(c fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-func Logout(c fiber.Ctx) error {
-	cookie := fiber.Cookie{
-		Name:     "jwt",
-		Value:    "",
-		Expires:  time.Now().Add(-time.Hour),
-		HTTPOnly: true,
+func EditProfile(c fiber.Ctx) error {
+	var data map[string]string
+
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return err
 	}
 
-	c.Cookie(&cookie)
-
-	return c.JSON(fiber.Map{
-		"message": "Success",
+	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
 	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Unauthenticated",
+		})
+	}
+
+	claims := token.Claims.(jwt.MapClaims)
+
+	var user models.User
+	repository.DB.Where("id = ?", claims["iss"]).First(&user)
+
+	if login, ok := data["login"]; ok {
+		user.Login = login
+	}
+	if email, ok := data["email"]; ok {
+		user.Email = email
+	}
+
+	repository.DB.Save(&user)
+
+	return c.JSON(user)
 }

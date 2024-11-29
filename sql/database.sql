@@ -1,14 +1,16 @@
-CREATE TYPE user_role AS ENUM ('user', 'moderator');
-
 CREATE TABLE roles (
     id SERIAL PRIMARY KEY,
-    name user_role UNIQUE NOT NULL,
+    name VARCHAR(10) UNIQUE NOT NULL,
     description TEXT
 );
 
+INSERT INTO roles (name, description) VALUES
+                                          ('user', 'Standard user role'),
+                                          ('moderator', 'Moderator role');
+
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    role_id INT REFERENCES roles(id),
+    role_id INT REFERENCES roles(id) DEFAULT 1,
     email VARCHAR(100) UNIQUE NOT NULL,
     login VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
@@ -19,7 +21,7 @@ CREATE TABLE channels (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
-    owner_id INT REFERENCES users(id),
+    owner_id INT REFERENCES users(id) ON DELETE CASCADE,
     subs_count INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
