@@ -156,3 +156,33 @@ func EditProfile(c fiber.Ctx) error {
 
 	return c.JSON(user)
 }
+
+func DeleteUser(c fiber.Ctx) error {
+	var data map[string]string
+
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return err
+	}
+
+	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Unauthenticated",
+		})
+	}
+
+	claims := token.Claims.(jwt.MapClaims)
+
+	var user models.User
+	repository.DB.Where("id = ?", claims["iss"]).First(&user)
+
+	repository.DB.Delete(&user)
+
+	return c.JSON(fiber.Map{
+		"message": "User deleted successfully",
+	})
+}

@@ -24,3 +24,8 @@ type Blog struct {
 	DislikesCount uint   `json:"dislikesCount"`
 	ViewsCount    uint   `json:"viewsCount"`
 }
+
+type Subscription struct {
+	UserId    uint `json:"userId"`
+	ChannelId uint `json:"channelId"`
+}
