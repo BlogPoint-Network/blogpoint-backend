@@ -4,9 +4,11 @@ import (
 	"blogpoint-backend/internal/models"
 	"blogpoint-backend/internal/repository"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 	"strconv"
 )
 
@@ -229,4 +231,112 @@ func DeleteChannel(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Channel successfully deleted",
 	})
+}
+
+func GetUserSubscriptions(c fiber.Ctx) error {
+	var data map[string]string
+
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return err
+	}
+
+	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Unauthenticated",
+		})
+	}
+
+	claims := token.Claims.(jwt.MapClaims)
+
+	var channels []models.Channel
+	if err := repository.DB.Joins("JOIN subscriptions ON subscriptions.channel_id = channels.id").
+		Where("subscriptions.user_id = ?", claims["iss"]).
+		Find(&channels).Error; err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{
+			"message": "Failed to retrieve subscriptions",
+		})
+	}
+
+	if len(channels) == 0 {
+		return c.JSON(fiber.Map{
+			"message": "No subscriptions found",
+		})
+	}
+
+	return c.JSON(channels)
+}
+
+func GetUserChannels(c fiber.Ctx) error {
+	var data map[string]string
+
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return err
+	}
+
+	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Unauthenticated",
+		})
+	}
+
+	claims := token.Claims.(jwt.MapClaims)
+
+	var channels []models.Channel
+	if err := repository.DB.Where("owner_id = ?", claims["iss"]).Find(&channels).Error; err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{
+			"message": "Failed to retrieve channels",
+		})
+	}
+
+	if len(channels) == 0 {
+		return c.JSON(fiber.Map{
+			"message": "No channels found",
+		})
+	}
+
+	return c.JSON(channels)
+}
+
+func GetChannel(c fiber.Ctx) error {
+	var data map[string]uint
+
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return err
+	}
+
+	_, ok := data["id"]
+	if !ok {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{
+			"message": "Channel Id is required",
+		})
+	}
+
+	var channel models.Channel
+	if err := repository.DB.First(&channel, data["id"]).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.Status(fiber.StatusNotFound)
+			return c.JSON(fiber.Map{
+				"message": "Channel not found",
+			})
+		}
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{
+			"message": "Failed to retrieve channel",
+		})
+	}
+
+	return c.JSON(channel)
 }
