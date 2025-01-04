@@ -316,7 +316,7 @@ func GetChannel(c fiber.Ctx) error {
 		return err
 	}
 
-	_, ok := data["id"]
+	_, ok := data["channelId"]
 	if !ok {
 		c.Status(fiber.StatusBadRequest)
 		return c.JSON(fiber.Map{
@@ -325,7 +325,7 @@ func GetChannel(c fiber.Ctx) error {
 	}
 
 	var channel models.Channel
-	if err := repository.DB.First(&channel, data["id"]).Error; err != nil {
+	if err := repository.DB.First(&channel, data["channelId"]).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.Status(fiber.StatusNotFound)
 			return c.JSON(fiber.Map{

@@ -20,7 +20,10 @@ func Setup(app *fiber.App) {
 	app.Post("/api/getuserchannels", controllers.GetUserChannels)
 	app.Post("/api/getChannel", controllers.GetChannel)
 
-	app.Post("/api/createblog", controllers.CreateBlog)
-	app.Post("/api/editblog", controllers.EditBlog)
-	app.Post("/api/deleteblog", controllers.DeleteBlog)
+	app.Post("/api/createpost", controllers.CreatePost)
+	app.Post("/api/editpost", controllers.EditPost)
+	app.Post("/api/deletepost", controllers.DeletePost)
+	app.Post("/api/getpost", controllers.GetPost)
+	app.Post("/api/getposts", controllers.GetPosts)
+
 }

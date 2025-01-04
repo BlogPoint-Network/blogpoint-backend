@@ -15,7 +15,7 @@ type Channel struct {
 	SubsCount   uint   `json:"subsCount"`
 }
 
-type Blog struct {
+type Post struct {
 	Id            uint   `json:"id"`
 	ChannelId     uint   `json:"channelId"`
 	Title         string `json:"title"`

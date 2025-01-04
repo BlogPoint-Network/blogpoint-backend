@@ -40,7 +40,7 @@ CREATE TABLE channel_moderators (
     PRIMARY KEY (channel_id, moderator_id)
 );
 
-CREATE TABLE blogs (
+CREATE TABLE posts (
     id SERIAL PRIMARY KEY,
     channel_id INT REFERENCES channels(id) ON DELETE CASCADE,
     title VARCHAR(200) NOT NULL,
@@ -53,9 +53,9 @@ CREATE TABLE blogs (
 
 CREATE TYPE media_type AS ENUM ('image', 'video', 'audio');
 
-CREATE TABLE blog_media (
+CREATE TABLE post_media (
     id SERIAL PRIMARY KEY,
-    blog_id INT REFERENCES blogs(id) ON DELETE CASCADE,
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
     media_type media_type NOT NULL,
     media_url TEXT UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -63,24 +63,24 @@ CREATE TABLE blog_media (
 
 CREATE TYPE reaction AS ENUM ('like', 'dislike');
 
-CREATE TABLE blog_reactions (
+CREATE TABLE post_reactions (
     id SERIAL PRIMARY KEY,
-    blog_id INT REFERENCES blogs(id) ON DELETE CASCADE,
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     reaction_type reaction NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_reaction_per_user UNIQUE (user_id, blog_id)
+    CONSTRAINT unique_reaction_per_user UNIQUE (user_id, post_id)
 );
 
 CREATE TABLE comments (
     id SERIAL PRIMARY KEY,
-    blog_id INT REFERENCES blogs(id) ON DELETE CASCADE,
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TYPE target AS ENUM ('channel', 'blog', 'comment');
+CREATE TYPE target AS ENUM ('channel', 'post', 'comment');
 CREATE TYPE status AS ENUM ('open', 'in progress', 'close');
 
 CREATE TABLE complaints (
@@ -99,21 +99,21 @@ CREATE OR REPLACE FUNCTION update_likes_dislikes() RETURNS TRIGGER AS $$
 BEGIN
     IF (TG_OP = 'INSERT') THEN
         IF (NEW.reaction_type = 'like') THEN
-UPDATE blogs SET likes_count = likes_count + 1 WHERE id = NEW.blog_id;
+UPDATE posts SET likes_count = likes_count + 1 WHERE id = NEW.post_id;
 ELSIF (NEW.reaction_type = 'dislike') THEN
-UPDATE blogs SET dislikes_count = dislikes_count + 1 WHERE id = NEW.blog_id;
+UPDATE posts SET dislikes_count = dislikes_count + 1 WHERE id = NEW.post_id;
 END IF;
     ELSIF (TG_OP = 'DELETE') THEN
         IF (OLD.reaction_type = 'like') THEN
-UPDATE blogs SET likes_count = likes_count - 1 WHERE id = OLD.blog_id;
+UPDATE posts SET likes_count = likes_count - 1 WHERE id = OLD.post_id;
 ELSIF (OLD.reaction_type = 'dislike') THEN
-UPDATE blogs SET dislikes_count = dislikes_count - 1 WHERE id = OLD.blog_id;
+UPDATE posts SET dislikes_count = dislikes_count - 1 WHERE id = OLD.post_id;
 END IF;
     ELSIF (TG_OP = 'UPDATE') THEN
         IF (OLD.reaction_type = 'like' AND NEW.reaction_type = 'dislike') THEN
-UPDATE blogs SET likes_count = likes_count - 1, dislikes_count = dislikes_count + 1 WHERE id = NEW.blog_id;
+UPDATE posts SET likes_count = likes_count - 1, dislikes_count = dislikes_count + 1 WHERE id = NEW.post_id;
 ELSIF (OLD.reaction_type = 'dislike' AND NEW.reaction_type = 'like') THEN
-UPDATE blogs SET likes_count = likes_count + 1, dislikes_count = dislikes_count - 1 WHERE id = NEW.blog_id;
+UPDATE posts SET likes_count = likes_count + 1, dislikes_count = dislikes_count - 1 WHERE id = NEW.post_id;
 END IF;
 END IF;
 RETURN NEW;
@@ -121,5 +121,5 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_likes_dislikes_trigger
-    AFTER INSERT OR DELETE OR UPDATE ON blog_reactions
+    AFTER INSERT OR DELETE OR UPDATE ON post_reactions
 FOR EACH ROW EXECUTE FUNCTION update_likes_dislikes();
