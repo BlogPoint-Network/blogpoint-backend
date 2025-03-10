@@ -299,10 +299,10 @@ func GetPost(c fiber.Ctx) error {
 }
 
 func GetPosts(c fiber.Ctx) error {
-	channelID := c.Query("channelId")
-	if channelID == "" {
+	channelId := c.Query("channelId")
+	if channelId == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Channel ID is required",
+			"error": "Channel Id is required",
 		})
 	}
 
@@ -316,7 +316,7 @@ func GetPosts(c fiber.Ctx) error {
 	offset := (page - 1) * 10
 
 	var posts []models.Post
-	if err := repository.DB.Where("channel_id = ?", channelID).Limit(10).Offset(offset).Find(&posts).Error; err != nil {
+	if err := repository.DB.Where("channel_id = ?", channelId).Limit(10).Offset(offset).Find(&posts).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch posts",
 		})

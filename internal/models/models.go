@@ -13,6 +13,8 @@ type Channel struct {
 	Description string `json:"description"`
 	OwnerId     uint   `json:"ownerId"`
 	SubsCount   uint   `json:"subsCount"`
+	LogoId      string `json:"avatarId"`
+	BannerId    string `json:"bannerId"`
 }
 
 type Post struct {
@@ -28,4 +30,11 @@ type Post struct {
 type Subscription struct {
 	UserId    uint `json:"userId"`
 	ChannelId uint `json:"channelId"`
+}
+
+type File struct {
+	Id       uint   `json:"id"`
+	UserId   uint   `json:"channelId"`
+	Filename string `json:"title"`
+	MimeType string `json:"MimeType"`
 }

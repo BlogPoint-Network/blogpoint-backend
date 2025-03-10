@@ -33,12 +33,38 @@ services:
       dockerfile: Dockerfile
     container_name: go
     environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=user
-      - DB_PASSWORD=test
-      - DB_NAME=test
+      DB_HOST: "db"
+      DB_PORT: 5432
+      DB_USER: "user"
+      DB_PASSWORD: "test"
+      DB_NAME: "test"
+      MINIO_ACCESS_KEY: "admin"
+      MINIO_SECRET_KEY: "mysecretkey123"
+      MINIO_INTERNAL_ENDPOINT: "minio:9000"
+      MINIO_PUBLIC_ENDPOINT: "http://localhost:9000"
     ports:
       - 8000:8000
     depends_on:
       - db
+
+  minio:
+    image: minio/minio
+    command: server --console-address ":9001" /data/
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web UI
+    environment:
+      MINIO_ACCESS_KEY: "admin"
+      MINIO_SECRET_KEY: "mysecretkey123"
+      MINIO_ENDPOINT: "minio:9000"
+    volumes:
+      - minio-storage:/data
+    restart: always # Авто-запуск при падении
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  minio-storage:
