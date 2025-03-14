@@ -13,8 +13,8 @@ type Channel struct {
 	Description string `json:"description"`
 	OwnerId     uint   `json:"ownerId"`
 	SubsCount   uint   `json:"subsCount"`
-	LogoId      string `json:"avatarId"`
-	BannerId    string `json:"bannerId"`
+	LogoId      *uint  `json:"logoId"`
+	BannerId    *uint  `json:"bannerId"`
 }
 
 type Post struct {
@@ -25,6 +25,26 @@ type Post struct {
 	LikesCount    uint   `json:"likesCount"`
 	DislikesCount uint   `json:"dislikesCount"`
 	ViewsCount    uint   `json:"viewsCount"`
+	Tags          []Tag  `gorm:"many2many:post_tags;" json:"tags"`
+}
+
+type Category struct {
+	Id    uint   `json:"id"`
+	Name  string `json:"name"`
+	Color string `json:"color"`
+	Tags  []Tag  `json:"tags"`
+}
+
+type Tag struct {
+	Id         uint   `json:"id"`
+	CategoryId uint   `json:"categoryId"`
+	Name       string `json:"name"`
+	Color      string `json:"color"`
+}
+
+type PostTag struct {
+	PostId uint `json:"postId"`
+	TagId  uint `json:"tagId"`
 }
 
 type Subscription struct {

@@ -22,6 +22,7 @@ func Setup(app *fiber.App) {
 	app.Post("/api/getusersubscriptions", controllers.GetUserSubscriptions)
 	app.Post("/api/getuserchannels", controllers.GetUserChannels)
 	app.Post("/api/getChannel", controllers.GetChannel)
+	app.Post("/api/getPopularChannels", controllers.GetPopularChannels)
 	app.Post("/api/subscribechannel", controllers.SubscribeChannel)
 	app.Post("/api/unsubscribechannel", controllers.UnsubscribeChannel)
 

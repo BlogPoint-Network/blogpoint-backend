@@ -9,6 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 	"strconv"
+	"strings"
 )
 
 func CreatePost(c fiber.Ctx) error {
@@ -83,17 +84,58 @@ func CreatePost(c fiber.Ctx) error {
 		})
 	}
 
+	tagNames := strings.Split(strings.TrimSpace(data["tags"]), ",")
+	tagSet := make(map[string]bool) // Для фильтрации дублей
+	var tagList []string
+
+	for _, tagName := range tagNames {
+		tagName = strings.TrimSpace(tagName)
+		if tagName != "" && !tagSet[tagName] {
+			tagSet[tagName] = true
+			tagList = append(tagList, tagName)
+		}
+	}
+
+	if len(tagList) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "No valid tags provided"})
+	}
+
 	post := models.Post{
 		ChannelId: uint(channelId),
 		Title:     data["title"],
 		Content:   data["content"],
 	}
 
-	if err := repository.DB.Create(&post).Error; err != nil {
-		c.Status(fiber.StatusInternalServerError)
+	err = repository.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&post).Error; err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to create post")
+		}
+
+		var tags []models.Tag
+		for _, tagName := range tagList {
+			var tag models.Tag
+			if err := tx.Where("name = ?", tagName).First(&tag).Error; err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "A non-existent tag was provided")
+			}
+			tags = append(tags, tag)
+		}
+
+		// Привязываем теги к посту
+		if err := tx.Model(&post).Association("Tags").Append(tags); err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to create tags")
+		}
+
+		return nil
+	})
+
+	if err != nil {
 		return c.JSON(fiber.Map{
-			"message": "Failed to create post",
+			"message": err,
 		})
+	}
+
+	if err := repository.DB.Preload("Tags").First(&post, post.Id).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to load post with tags"})
 	}
 
 	return c.JSON(post)
@@ -178,11 +220,53 @@ func EditPost(c fiber.Ctx) error {
 		post.Content = data["content"]
 	}
 
-	if err := repository.DB.Save(&post).Error; err != nil {
-		c.Status(fiber.StatusInternalServerError)
+	tagNames := strings.Split(strings.TrimSpace(data["tags"]), ",")
+	tagSet := make(map[string]bool) // Для фильтрации дублей
+	var tagList []string
+
+	for _, tagName := range tagNames {
+		tagName = strings.TrimSpace(tagName)
+		if tagName != "" && !tagSet[tagName] {
+			tagSet[tagName] = true
+			tagList = append(tagList, tagName)
+		}
+	}
+
+	// Начинаем транзакцию
+	err = repository.DB.Transaction(func(tx *gorm.DB) error {
+		// Сохраняем изменения в посте
+		if err := tx.Save(&post).Error; err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to update post")
+
+		}
+
+		if len(tagList) != 0 {
+			var tags []models.Tag
+			for _, tagName := range tagList {
+				var tag models.Tag
+				if err := tx.Where("name = ?", tagName).First(&tag).Error; err != nil {
+					return fiber.NewError(fiber.StatusBadRequest, "A non-existent tag was provided")
+				}
+				tags = append(tags, tag)
+			}
+
+			// Очищаем старые теги и добавляем новые
+			if err := tx.Model(&post).Association("Tags").Replace(tags); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "Failed to update tags")
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
 		return c.JSON(fiber.Map{
-			"message": "Failed to update post",
+			"message": err,
 		})
+	}
+
+	if err := repository.DB.Preload("Tags").First(&post, uint(postId)).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to load post with tags"})
 	}
 
 	return c.JSON(post)
@@ -274,24 +358,23 @@ func DeletePost(c fiber.Ctx) error {
 
 func GetPost(c fiber.Ctx) error {
 	postId := c.Query("postId")
-	channelId := c.Query("channelId")
 
-	if postId == "" || channelId == "" {
+	if postId == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Post Id and Channel Id are required",
+			"message": "Post Id is required",
 		})
 	}
 
 	var post models.Post
 
-	if err := repository.DB.Where("id = ? AND channel_id = ?", postId, channelId).First(&post).Error; err != nil {
+	if err := repository.DB.Preload("Tags").First(&post, postId).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "Post not found",
+				"message": "Post not found",
 			})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch post",
+			"message": "Failed to fetch post",
 		})
 	}
 
@@ -302,23 +385,23 @@ func GetPosts(c fiber.Ctx) error {
 	channelId := c.Query("channelId")
 	if channelId == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Channel Id is required",
+			"message": "Channel Id is required",
 		})
 	}
 
 	page, err := strconv.Atoi(c.Query("page", "1"))
 	if err != nil || page <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid page value",
+			"message": "Invalid page value",
 		})
 	}
 
 	offset := (page - 1) * 10
 
 	var posts []models.Post
-	if err := repository.DB.Where("channel_id = ?", channelId).Limit(10).Offset(offset).Find(&posts).Error; err != nil {
+	if err := repository.DB.Preload("Tags").Where("channel_id = ?", channelId).Limit(10).Offset(offset).Find(&posts).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch posts",
+			"message": "Failed to fetch posts",
 		})
 	}
 

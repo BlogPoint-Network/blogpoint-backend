@@ -68,6 +68,8 @@ func CreateChannel(c fiber.Ctx) error {
 		Name:        name,
 		Description: description,
 		OwnerId:     uintId,
+		LogoId:      nil,
+		BannerId:    nil,
 	}
 
 	repository.DB.Create(&channel)
@@ -339,6 +341,23 @@ func GetChannel(c fiber.Ctx) error {
 	}
 
 	return c.JSON(channel)
+}
+
+func GetPopularChannels(c fiber.Ctx) error {
+	var channels []models.Channel
+
+	if err := repository.DB.Order("subs_count DESC").Find(&channels).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to retrieve popular channels"})
+	}
+
+	if len(channels) == 0 {
+		return c.JSON(fiber.Map{
+			"message": "No channels found",
+		})
+	}
+
+	return c.JSON(channels)
 }
 
 func SubscribeChannel(c fiber.Ctx) error {

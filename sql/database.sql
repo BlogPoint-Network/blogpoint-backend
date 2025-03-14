@@ -5,8 +5,15 @@ CREATE TABLE roles (
 );
 
 INSERT INTO roles (name, description) VALUES
-                                          ('user', 'Standard user role'),
-                                          ('moderator', 'Moderator role');
+    ('user', 'Standard user role'),
+    ('moderator', 'Moderator role');
+
+CREATE TABLE files (
+    id SERIAL PRIMARY KEY,
+    filename varchar(200) UNIQUE NOT NULL,
+    mime_type varchar(30) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -17,6 +24,9 @@ CREATE TABLE users (
     logo_id INT REFERENCES files(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE files ADD COLUMN user_id INT;
+ALTER TABLE files ADD CONSTRAINT fk_files_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 
 CREATE TABLE channels (
     id SERIAL PRIMARY KEY,
@@ -55,12 +65,23 @@ CREATE TABLE posts (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE files (
+CREATE TABLE categories (
     id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    filename varchar(200) UNIQUE NOT NULL,
-    mime_type varchar(30) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    name VARCHAR(100) UNIQUE NOT NULL,
+    color VARCHAR(7) NOT NULL
+);
+
+CREATE TABLE tags (
+    id SERIAL PRIMARY KEY,
+    category_id INT REFERENCES categories(id) ON DELETE CASCADE,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    color VARCHAR(7) NOT NULL
+);
+
+CREATE TABLE post_tags (
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
+    tag_id INT REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (post_id, tag_id)
 );
 
 CREATE TYPE reaction AS ENUM ('like', 'dislike');
