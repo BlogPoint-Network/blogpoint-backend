@@ -1,6 +1,7 @@
 package main
 
 import (
+	"blogpoint-backend/internal/mail"
 	"blogpoint-backend/internal/repository"
 	"blogpoint-backend/internal/routes"
 	"blogpoint-backend/internal/storage"
@@ -12,6 +13,8 @@ func main() {
 	repository.Connect()
 	storage.InitMinio()
 
+	emailSender := mail.NewGmailSender("EMAIL_SENDER_NAME", "EMAIL_SENDER_ADDRESS", "EMAIL_SENDER_PASSWORD")
+
 	app := fiber.New(fiber.Config{
 		BodyLimit: 500 * 1024 * 1024,
 	})
@@ -21,7 +24,7 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	routes.Setup(app)
+	routes.Setup(app, emailSender)
 
 	app.Listen(":8000")
 }

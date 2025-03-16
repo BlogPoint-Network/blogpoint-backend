@@ -2,18 +2,26 @@ package routes
 
 import (
 	"blogpoint-backend/internal/controllers"
+	"blogpoint-backend/internal/mail"
 	"github.com/gofiber/fiber/v3"
 )
 
-func Setup(app *fiber.App) {
+func Setup(app *fiber.App, emailSender mail.EmailSender) {
 
 	app.Post("/api/uploadfile", controllers.UploadFileHandler)
 	app.Delete("/api/deletefile", controllers.DeleteFileHandler)
 
 	app.Post("/api/register", controllers.Register)
+	app.Post("/api/requestemailverification", func(c fiber.Ctx) error {
+		return controllers.RequestEmailVerification(c, emailSender)
+	})
+	app.Post("/api/verifyemail", controllers.VerifyEmail)
 	app.Post("/api/login", controllers.Login)
 	app.Post("/api/user", controllers.User)
 	app.Post("/api/editprofile", controllers.EditProfile)
+	app.Post("/api/requestdeletionverification", func(c fiber.Ctx) error {
+		return controllers.RequestDeletionVerification(c, emailSender)
+	})
 	app.Post("/api/deleteprofile", controllers.DeleteUser)
 
 	app.Post("/api/createchannel", controllers.CreateChannel)

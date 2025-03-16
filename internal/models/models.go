@@ -1,10 +1,21 @@
 package models
 
+import "time"
+
 type User struct {
-	Id       uint   `json:"id"`
-	Login    string `json:"login"`
-	Email    string `json:"email"`
-	Password []byte `json:"-"`
+	Id         uint   `json:"id"`
+	Login      string `json:"login"`
+	Email      string `json:"email"`
+	Password   []byte `json:"-"`
+	IsVerified bool   `json:"isVerified"`
+}
+
+type VerificationCode struct {
+	Id        uint      `json:"id"`
+	UserId    uint      `json:"userId"`
+	Code      string    `json:"code"`
+	Purpose   string    `json:"purpose"`
+	ExpiresAt time.Time `json:"expiresAt"`
 }
 
 type Channel struct {

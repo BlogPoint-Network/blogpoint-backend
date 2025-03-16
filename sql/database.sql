@@ -21,12 +21,22 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     login VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE,
     logo_id INT REFERENCES files(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 ALTER TABLE files ADD COLUMN user_id INT;
 ALTER TABLE files ADD CONSTRAINT fk_files_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+CREATE TABLE verification_codes (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code VARCHAR(6) NOT NULL,
+    purpose TEXT CHECK (purpose IN ('email_verification', 'account_deletion')),
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE channels (
     id SERIAL PRIMARY KEY,
