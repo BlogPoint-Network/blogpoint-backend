@@ -13,7 +13,7 @@ func main() {
 	repository.Connect()
 	storage.InitMinio()
 
-	emailSender := mail.NewGmailSender("EMAIL_SENDER_NAME", "EMAIL_SENDER_ADDRESS", "EMAIL_SENDER_PASSWORD")
+	emailSender := mail.NewGmailSender("BlogPoint", "blogpointoff@gmail.com", "dacqkbzedkdnnxqu")
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: 500 * 1024 * 1024,

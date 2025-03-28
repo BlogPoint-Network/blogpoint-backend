@@ -378,6 +378,12 @@ func GetPost(c fiber.Ctx) error {
 		})
 	}
 
+	if err := repository.DB.Model(&post).UpdateColumn("views_count", gorm.Expr("views_count + 1")).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to update view count",
+		})
+	}
+
 	return c.JSON(post)
 }
 
@@ -406,4 +412,106 @@ func GetPosts(c fiber.Ctx) error {
 	}
 
 	return c.JSON(posts)
+}
+
+func SetReaction(c fiber.Ctx) error {
+	var data map[string]string
+
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return err
+	}
+
+	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Unauthenticated",
+		})
+	}
+
+	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
+	if !ok {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Invalid token",
+		})
+	}
+
+	userId, err := strconv.ParseUint(strId, 10, 32)
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Invalid issuer id",
+		})
+	}
+
+	if data["postId"] == "" {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{
+			"message": "Post id is required",
+		})
+	}
+
+	postId, err := strconv.ParseUint(data["postId"], 10, 32)
+	if err != nil {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{
+			"message": "Invalid post id",
+		})
+	}
+
+	if data["reaction"] != "like" && data["reaction"] != "dislike" {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{
+			"message": "Invalid reaction type",
+		})
+	}
+
+	reactionValue := data["reaction"] == "like"
+
+	var existingReaction models.PostReaction
+	if err := repository.DB.Where("post_id = ? AND user_id = ?", postId, userId).First(&existingReaction).Error; err == nil {
+		if existingReaction.Reaction == reactionValue {
+			if err := repository.DB.Delete(&existingReaction).Error; err != nil {
+				c.Status(fiber.StatusInternalServerError)
+				return c.JSON(fiber.Map{
+					"message": "Failed to remove reaction",
+				})
+			}
+			return c.JSON(fiber.Map{
+				"message": "Reaction removed",
+			})
+		}
+
+		existingReaction.Reaction = reactionValue
+		if err := repository.DB.Save(&existingReaction).Error; err != nil {
+			c.Status(fiber.StatusInternalServerError)
+			return c.JSON(fiber.Map{
+				"message": "Failed to update reaction",
+			})
+		}
+		return c.JSON(fiber.Map{
+			"message": "Reaction updated",
+		})
+	}
+
+	newReaction := models.PostReaction{
+		PostId:   uint(postId),
+		UserId:   uint(userId),
+		Reaction: reactionValue,
+	}
+
+	if err := repository.DB.Create(&newReaction).Error; err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{
+			"message": "Failed to add reaction",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Reaction added",
+	})
 }

@@ -14,7 +14,7 @@ type VerificationCode struct {
 	Id        uint      `json:"id"`
 	UserId    uint      `json:"userId"`
 	Code      string    `json:"code"`
-	Purpose   string    `json:"purpose"`
+	Type      string    `json:"type"`
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
@@ -56,6 +56,13 @@ type Tag struct {
 type PostTag struct {
 	PostId uint `json:"postId"`
 	TagId  uint `json:"tagId"`
+}
+
+type PostReaction struct {
+	Id       uint `json:"id"`
+	PostId   uint `json:"postId"`
+	UserId   uint `json:"userId"`
+	Reaction bool `json:"reaction"`
 }
 
 type Subscription struct {

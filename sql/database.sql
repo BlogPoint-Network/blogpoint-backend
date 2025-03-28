@@ -33,9 +33,10 @@ CREATE TABLE verification_codes (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     code VARCHAR(6) NOT NULL,
-    purpose TEXT CHECK (purpose IN ('email_verification', 'account_deletion')),
+    type TEXT CHECK (type IN ('email_verification', 'account_deletion', 'password_reset')),
     expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, type)
 );
 
 CREATE TABLE channels (
@@ -94,13 +95,11 @@ CREATE TABLE post_tags (
     PRIMARY KEY (post_id, tag_id)
 );
 
-CREATE TYPE reaction AS ENUM ('like', 'dislike');
-
 CREATE TABLE post_reactions (
     id SERIAL PRIMARY KEY,
     post_id INT REFERENCES posts(id) ON DELETE CASCADE,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    reaction_type reaction NOT NULL,
+    reaction BOOLEAN NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_reaction_per_user UNIQUE (user_id, post_id)
 );
@@ -130,29 +129,30 @@ CREATE TABLE complaints (
 
 CREATE OR REPLACE FUNCTION update_likes_dislikes() RETURNS TRIGGER AS $$
 BEGIN
-    IF (TG_OP = 'INSERT') THEN
-        IF (NEW.reaction_type = 'like') THEN
-UPDATE posts SET likes_count = likes_count + 1 WHERE id = NEW.post_id;
-ELSIF (NEW.reaction_type = 'dislike') THEN
-UPDATE posts SET dislikes_count = dislikes_count + 1 WHERE id = NEW.post_id;
-END IF;
-    ELSIF (TG_OP = 'DELETE') THEN
-        IF (OLD.reaction_type = 'like') THEN
-UPDATE posts SET likes_count = likes_count - 1 WHERE id = OLD.post_id;
-ELSIF (OLD.reaction_type = 'dislike') THEN
-UPDATE posts SET dislikes_count = dislikes_count - 1 WHERE id = OLD.post_id;
-END IF;
-    ELSIF (TG_OP = 'UPDATE') THEN
-        IF (OLD.reaction_type = 'like' AND NEW.reaction_type = 'dislike') THEN
-UPDATE posts SET likes_count = likes_count - 1, dislikes_count = dislikes_count + 1 WHERE id = NEW.post_id;
-ELSIF (OLD.reaction_type = 'dislike' AND NEW.reaction_type = 'like') THEN
-UPDATE posts SET likes_count = likes_count + 1, dislikes_count = dislikes_count - 1 WHERE id = NEW.post_id;
-END IF;
-END IF;
-RETURN NEW;
+    CASE TG_OP
+        WHEN 'INSERT' THEN
+            UPDATE posts
+            SET likes_count = likes_count + (NEW.reaction::INT),
+                dislikes_count = dislikes_count + ((NOT NEW.reaction)::INT)
+            WHERE id = NEW.post_id;
+
+        WHEN 'DELETE' THEN
+            UPDATE posts
+            SET likes_count = likes_count - (OLD.reaction::INT),
+                dislikes_count = dislikes_count - ((NOT OLD.reaction)::INT)
+            WHERE id = OLD.post_id;
+
+        WHEN 'UPDATE' THEN
+            UPDATE posts
+            SET likes_count = likes_count + (NEW.reaction::INT) - (OLD.reaction::INT),
+                dislikes_count = dislikes_count + ((NOT NEW.reaction)::INT) - ((NOT OLD.reaction)::INT)
+            WHERE id = NEW.post_id;
+    END CASE;
+
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_likes_dislikes_trigger
-    AFTER INSERT OR DELETE OR UPDATE ON post_reactions
+AFTER INSERT OR DELETE OR UPDATE ON post_reactions
 FOR EACH ROW EXECUTE FUNCTION update_likes_dislikes();

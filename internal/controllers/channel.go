@@ -71,8 +71,14 @@ func CreateChannel(c fiber.Ctx) error {
 		LogoId:      nil,
 		BannerId:    nil,
 	}
-
 	repository.DB.Create(&channel)
+
+	//	channel := models.Channel{
+	//		Name:        name,
+	//		Description: description,
+	//		OwnerId:     uintId,
+	//	}
+	//repository.DB.Select("Name", "Description", "OwnerId").Create(&channel)
 
 	return c.JSON(channel)
 }

@@ -15,6 +15,7 @@ import (
 )
 
 const SecretKey = "secret"
+const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func Register(c fiber.Ctx) error {
 
@@ -46,7 +47,11 @@ func Register(c fiber.Ctx) error {
 
 func generateCode() string {
 	rand.Seed(time.Now().UnixNano())
-	return fmt.Sprintf("%06d", rand.Intn(1000000)) // Генерирует 6-значный код
+	code := make([]byte, 6)
+	for i := range code {
+		code[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(code)
 }
 
 func RequestEmailVerification(c fiber.Ctx, emailSender mail.EmailSender) error {
@@ -84,7 +89,7 @@ func RequestEmailVerification(c fiber.Ctx, emailSender mail.EmailSender) error {
 	}
 
 	// Удаляем старый код
-	repository.DB.Delete(&models.VerificationCode{}, "user_id = ? AND purpose = ?", uintId, "email_verification")
+	repository.DB.Delete(&models.VerificationCode{}, "user_id = ? AND type = ?", uintId, "email_verification")
 
 	// Генерируем код
 	code := generateCode()
@@ -93,7 +98,7 @@ func RequestEmailVerification(c fiber.Ctx, emailSender mail.EmailSender) error {
 	verification := models.VerificationCode{
 		UserId:    uint(uintId),
 		Code:      code,
-		Purpose:   "email_verification",
+		Type:      "email_verification",
 		ExpiresAt: expiresAt,
 	}
 	repository.DB.Create(&verification)
@@ -113,6 +118,10 @@ func RequestEmailVerification(c fiber.Ctx, emailSender mail.EmailSender) error {
 	to := []string{user.Email}
 
 	err = emailSender.SendEmail(subject, content, to, nil, nil, nil)
+
+	fmt.Println(emailSender)
+
+	fmt.Println(err)
 
 	if err != nil {
 		return err
@@ -144,7 +153,7 @@ func VerifyEmail(c fiber.Ctx) error {
 	// Проверяем код
 	var verification models.VerificationCode
 	err = repository.DB.Where(
-		"user_id = ? AND code = ? AND purpose = ? AND expires_at > ?",
+		"user_id = ? AND code = ? AND type = ? AND expires_at > ?",
 		claims["iss"], data["code"], "email_verification", time.Now(),
 	).First(&verification).Error
 
@@ -277,6 +286,98 @@ func EditProfile(c fiber.Ctx) error {
 	return c.JSON(user)
 }
 
+func RequestPasswordReset(c fiber.Ctx, emailSender mail.EmailSender) error {
+	var data map[string]string
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return err
+	}
+
+	email := data["email"]
+	if email == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Email is required"})
+	}
+
+	var user models.User
+	if err := repository.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Email not found"})
+	}
+
+	repository.DB.Delete(&models.VerificationCode{}, "user_id = ? AND type = ?", user.Id, "password_reset")
+
+	code := generateCode()
+	expiresAt := time.Now().Add(10 * time.Minute)
+
+	verification := models.VerificationCode{
+		UserId:    user.Id,
+		Code:      code,
+		Type:      "password_reset",
+		ExpiresAt: expiresAt,
+	}
+	repository.DB.Create(&verification)
+
+	// Формируем ссылку
+	resetLink := fmt.Sprintf("https://blogpoint.com/reset-password?token=%s", code)
+
+	// Отправляем email
+	subject := "Blog point password recovery"
+	content := fmt.Sprintf(`
+		<h1>Password recovery</h1>
+		<p>Click the link below to reset your password:</p>
+		<a href="%s">%s</a>
+		<p>This link is valid for 10 minutes.</p>
+		<p>Best regards, <br>Blog Point Team</p>`, resetLink, resetLink)
+
+	to := []string{email}
+
+	err := emailSender.SendEmail(subject, content, to, nil, nil, nil)
+
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(fiber.Map{"message": "Password recovery link sent"})
+
+}
+
+func ResetPassword(c fiber.Ctx) error {
+	var data map[string]string
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return err
+	}
+
+	code := data["code"]
+	newPassword := data["password"]
+
+	if code == "" || newPassword == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid request"})
+	}
+	if data["code"] == "" || data["password"] == "" {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"message": "Incorrect data"})
+	}
+
+	var verification models.VerificationCode
+	err := repository.DB.Where("code = ? AND type = ? AND expires_at > ?",
+		data["code"], "password_reset", time.Now()).First(&verification).Error
+
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid or expired code"})
+	}
+
+	// Обновляем пароль
+	var user models.User
+	repository.DB.First(&user, verification.UserId)
+
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(newPassword), 14)
+	user.Password = hashedPassword
+	repository.DB.Save(&user)
+
+	// Удаляем использованный токен
+	repository.DB.Delete(&verification)
+
+	return c.JSON(fiber.Map{"message": "Password changed successfully"})
+}
+
 func RequestDeletionVerification(c fiber.Ctx, emailSender mail.EmailSender) error {
 	var data map[string]string
 
@@ -312,7 +413,7 @@ func RequestDeletionVerification(c fiber.Ctx, emailSender mail.EmailSender) erro
 	}
 
 	// Удаляем старый код
-	repository.DB.Delete(&models.VerificationCode{}, "user_id = ? AND purpose = ?", uintId, "account_deletion")
+	repository.DB.Delete(&models.VerificationCode{}, "user_id = ? AND type = ?", uintId, "account_deletion")
 
 	// Генерируем код
 	code := generateCode()
@@ -321,7 +422,7 @@ func RequestDeletionVerification(c fiber.Ctx, emailSender mail.EmailSender) erro
 	verification := models.VerificationCode{
 		UserId:    uint(uintId),
 		Code:      code,
-		Purpose:   "account_deletion",
+		Type:      "account_deletion",
 		ExpiresAt: expiresAt,
 	}
 	repository.DB.Create(&verification)
@@ -372,7 +473,7 @@ func DeleteUser(c fiber.Ctx) error {
 	// Проверяем код
 	var verification models.VerificationCode
 	err = repository.DB.Where(
-		"user_id = ? AND code = ? AND purpose = ? AND expires_at > ?",
+		"user_id = ? AND code = ? AND type = ? AND expires_at > ?",
 		claims["iss"], data["code"], "account_deletion", time.Now(),
 	).First(&verification).Error
 

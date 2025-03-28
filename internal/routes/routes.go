@@ -23,6 +23,10 @@ func Setup(app *fiber.App, emailSender mail.EmailSender) {
 		return controllers.RequestDeletionVerification(c, emailSender)
 	})
 	app.Post("/api/deleteprofile", controllers.DeleteUser)
+	app.Post("/api/requestpasswordreset", func(c fiber.Ctx) error {
+		return controllers.RequestPasswordReset(c, emailSender)
+	})
+	app.Post("/api/resetpassword", controllers.ResetPassword)
 
 	app.Post("/api/createchannel", controllers.CreateChannel)
 	app.Post("/api/editchannel", controllers.EditChannel)
@@ -39,5 +43,5 @@ func Setup(app *fiber.App, emailSender mail.EmailSender) {
 	app.Post("/api/deletepost", controllers.DeletePost)
 	app.Post("/api/getpost", controllers.GetPost)
 	app.Post("/api/getposts", controllers.GetPosts)
-
+	app.Post("/api/setreaction", controllers.SetReaction)
 }
