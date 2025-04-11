@@ -42,7 +42,9 @@ func Register(c fiber.Ctx) error {
 
 	repository.DB.Select("Login", "Email", "Password").Create(&user)
 
-	return c.JSON(user)
+	return c.JSON(fiber.Map{
+		"message": "Successful registration",
+	})
 }
 
 func generateCode() string {
@@ -55,13 +57,7 @@ func generateCode() string {
 }
 
 func RequestEmailVerification(c fiber.Ctx, emailSender mail.EmailSender) error {
-	var data map[string]string
-
-	if err := json.Unmarshal(c.Body(), &data); err != nil {
-		return err
-	}
-
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -137,7 +133,7 @@ func VerifyEmail(c fiber.Ctx) error {
 		return err
 	}
 
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -219,19 +215,14 @@ func Login(c fiber.Ctx) error {
 	c.Cookie(&cookie)
 
 	return c.JSON(fiber.Map{
-		"token": token,
-		"user":  user,
+		"message": "Successful authorization",
+		"user":    user,
 	})
 }
 
 func User(c fiber.Ctx) error {
-	var data map[string]string
-
-	if err := json.Unmarshal(c.Body(), &data); err != nil {
-		return err
-	}
-
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	fmt.Println(c.Cookies("jwt"))
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -258,7 +249,7 @@ func EditProfile(c fiber.Ctx) error {
 		return err
 	}
 
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -379,13 +370,7 @@ func ResetPassword(c fiber.Ctx) error {
 }
 
 func RequestDeletionVerification(c fiber.Ctx, emailSender mail.EmailSender) error {
-	var data map[string]string
-
-	if err := json.Unmarshal(c.Body(), &data); err != nil {
-		return err
-	}
-
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -457,7 +442,7 @@ func DeleteUser(c fiber.Ctx) error {
 		return err
 	}
 
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 

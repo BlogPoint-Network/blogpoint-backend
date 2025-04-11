@@ -20,7 +20,7 @@ func CreateChannel(c fiber.Ctx) error {
 		return err
 	}
 
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -73,11 +73,11 @@ func CreateChannel(c fiber.Ctx) error {
 	}
 	repository.DB.Create(&channel)
 
-	//	channel := models.Channel{
-	//		Name:        name,
-	//		Description: description,
-	//		OwnerId:     uintId,
-	//	}
+	//channel := models.Channel{
+	//	Name:        name,
+	//	Description: description,
+	//	OwnerId:     uintId,
+	//}
 	//repository.DB.Select("Name", "Description", "OwnerId").Create(&channel)
 
 	return c.JSON(channel)
@@ -90,7 +90,7 @@ func EditChannel(c fiber.Ctx) error {
 		return err
 	}
 
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -172,7 +172,7 @@ func DeleteChannel(c fiber.Ctx) error {
 		return err
 	}
 
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -242,13 +242,7 @@ func DeleteChannel(c fiber.Ctx) error {
 }
 
 func GetUserSubscriptions(c fiber.Ctx) error {
-	var data map[string]string
-
-	if err := json.Unmarshal(c.Body(), &data); err != nil {
-		return err
-	}
-
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -281,13 +275,7 @@ func GetUserSubscriptions(c fiber.Ctx) error {
 }
 
 func GetUserChannels(c fiber.Ctx) error {
-	var data map[string]string
-
-	if err := json.Unmarshal(c.Body(), &data); err != nil {
-		return err
-	}
-
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -373,7 +361,7 @@ func SubscribeChannel(c fiber.Ctx) error {
 		return err
 	}
 
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
@@ -453,7 +441,7 @@ func UnsubscribeChannel(c fiber.Ctx) error {
 		return err
 	}
 
-	token, err := jwt.ParseWithClaims(data["token"], jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
