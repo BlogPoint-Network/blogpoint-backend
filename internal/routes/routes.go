@@ -19,6 +19,7 @@ func Setup(app *fiber.App, emailSender mail.EmailSender) {
 	app.Post("/api/login", controllers.Login)
 	app.Get("/api/user", controllers.User)
 	app.Patch("/api/editprofile", controllers.EditProfile)
+	app.Patch("/api/changepassword", controllers.ChangePassword)
 	app.Post("/api/requestdeletionverification", func(c fiber.Ctx) error {
 		return controllers.RequestDeletionVerification(c, emailSender)
 	})

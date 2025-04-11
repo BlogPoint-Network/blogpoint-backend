@@ -5,6 +5,7 @@ import (
 	"blogpoint-backend/internal/repository"
 	"blogpoint-backend/internal/routes"
 	"blogpoint-backend/internal/storage"
+	"blogpoint-backend/utils"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 )
@@ -25,6 +26,8 @@ func main() {
 	}))
 
 	routes.Setup(app, emailSender)
+
+	utils.StartCleanupTask()
 
 	app.Listen(":8000")
 }

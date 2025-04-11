@@ -32,6 +32,22 @@ func Register(c fiber.Ctx) error {
 		})
 	}
 
+	var existingUser models.User
+	if err := repository.DB.Where("login = ?", data["login"]).First(&existingUser).Error; err == nil {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{
+			"message": "Login is already taken",
+		})
+	}
+
+	// Проверка уникальности email
+	if err := repository.DB.Where("email = ?", data["email"]).First(&existingUser).Error; err == nil {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{
+			"message": "Email is already taken",
+		})
+	}
+
 	password, _ := bcrypt.GenerateFromPassword([]byte(data["password"]), 14)
 
 	user := models.User{
@@ -275,6 +291,67 @@ func EditProfile(c fiber.Ctx) error {
 	repository.DB.Save(&user)
 
 	return c.JSON(user)
+}
+
+func ChangePassword(c fiber.Ctx) error {
+	var data map[string]string
+
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return err
+	}
+
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Unauthenticated",
+		})
+	}
+
+	claims := token.Claims.(jwt.MapClaims)
+
+	var user models.User
+	if err = repository.DB.Where("id = ?", claims["iss"]).First(&user).Error; err != nil {
+		c.Status(fiber.StatusNotFound)
+		return c.JSON(fiber.Map{
+			"message": "User not found",
+		})
+	}
+
+	if data["oldPassword"] == "" || data["newPassword"] == "" || data["oldPassword"] == data["newPassword"] {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{
+			"message": "Incorrect data",
+		})
+	}
+
+	if err = bcrypt.CompareHashAndPassword(user.Password, []byte(data["oldPassword"])); err != nil {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{
+			"message": "Incorrect old password",
+		})
+	}
+	password, err := bcrypt.GenerateFromPassword([]byte(data["newPassword"]), 14)
+	if err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{
+			"message": "Failed to hash password",
+		})
+	}
+	user.Password = password
+	if err = repository.DB.Save(&user).Error; err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{
+			"message": "Failed to update password",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Password changed successfully",
+	})
 }
 
 func RequestPasswordReset(c fiber.Ctx, emailSender mail.EmailSender) error {
