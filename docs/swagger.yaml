@@ -1,0 +1,1133 @@
+basePath: /
+definitions:
+  controllers.ChangePasswordRequest:
+    properties:
+      newPassword:
+        example: newSecret123
+        type: string
+      oldPassword:
+        example: oldSecret123
+        type: string
+    type: object
+  controllers.CodeRequest:
+    properties:
+      code:
+        example: H4RF1G
+        type: string
+    type: object
+  controllers.CreateChannelRequest:
+    properties:
+      categoryId:
+        example: 12
+        type: integer
+      description:
+        example: More blogs here
+        type: string
+      name:
+        example: BlogPoint News
+        type: string
+    type: object
+  controllers.CreatePostRequest:
+    properties:
+      channelId:
+        example: 1
+        type: integer
+      content:
+        example: Something here
+        type: string
+      tags:
+        example: Новости, Журналистика, Статьи
+        type: string
+      title:
+        example: Today's news
+        type: string
+    type: object
+  controllers.DataResponse-array_models_Post:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/models.Post'
+        type: array
+      message:
+        type: string
+    type: object
+  controllers.DataResponse-models_Channel:
+    properties:
+      data:
+        $ref: '#/definitions/models.Channel'
+      message:
+        type: string
+    type: object
+  controllers.DataResponse-models_Post:
+    properties:
+      data:
+        $ref: '#/definitions/models.Post'
+      message:
+        type: string
+    type: object
+  controllers.DataResponse-models_User:
+    properties:
+      data:
+        $ref: '#/definitions/models.User'
+      message:
+        type: string
+    type: object
+  controllers.EditChannelRequest:
+    properties:
+      categoryId:
+        example: 12
+        type: integer
+      channelId:
+        example: 1
+        type: integer
+      description:
+        example: More blogs here
+        type: string
+      name:
+        example: BlogPoint News
+        type: string
+    type: object
+  controllers.EditPostRequest:
+    properties:
+      content:
+        example: Something here
+        type: string
+      postId:
+        example: 1
+        type: integer
+      tags:
+        example: Новости, Журналистика, Статьи
+        type: string
+      title:
+        example: Today's news
+        type: string
+    type: object
+  controllers.EditProfileRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      login:
+        example: johndoe
+        type: string
+    type: object
+  controllers.EmailRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+    type: object
+  controllers.ErrorResponse:
+    properties:
+      message:
+        example: Example
+        type: string
+    type: object
+  controllers.FileResponse:
+    properties:
+      message:
+        type: string
+      url:
+        type: string
+    type: object
+  controllers.LoginRequest:
+    properties:
+      login:
+        example: johndoe
+        type: string
+      password:
+        example: secret123
+        type: string
+    type: object
+  controllers.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  controllers.RegisterRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      login:
+        example: johndoe
+        type: string
+      password:
+        example: secret123
+        type: string
+    type: object
+  controllers.ResetPasswordRequest:
+    properties:
+      code:
+        example: H4RF1G
+        type: string
+      password:
+        example: secret123
+        type: string
+    type: object
+  controllers.SetReactionRequest:
+    properties:
+      postId:
+        example: 1
+        type: integer
+      reaction:
+        example: like
+        type: string
+    type: object
+  models.Category:
+    properties:
+      color:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  models.Channel:
+    properties:
+      category:
+        $ref: '#/definitions/models.Category'
+      description:
+        type: string
+      id:
+        type: integer
+      logoId:
+        type: integer
+      name:
+        type: string
+      ownerId:
+        type: integer
+      subsCount:
+        type: integer
+    type: object
+  models.Post:
+    properties:
+      channelId:
+        type: integer
+      content:
+        type: string
+      dislikesCount:
+        type: integer
+      id:
+        type: integer
+      likesCount:
+        type: integer
+      tags:
+        items:
+          $ref: '#/definitions/models.Tag'
+        type: array
+      title:
+        type: string
+      viewsCount:
+        type: integer
+    type: object
+  models.Tag:
+    properties:
+      categoryId:
+        type: integer
+      color:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  models.User:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      isVerified:
+        type: boolean
+      login:
+        type: string
+    type: object
+host: localhost:8000
+info:
+  contact: {}
+  description: API для BlogPoint
+  title: BlogPoint API
+  version: "1.0"
+paths:
+  /api/changePassword:
+    patch:
+      consumes:
+      - application/json
+      description: Изменение пароля пользователя
+      parameters:
+      - description: Старый и новый пароль
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Смена пароля
+      tags:
+      - User
+  /api/createChannel:
+    post:
+      consumes:
+      - application/json
+      description: Создает канал для текущего пользователя
+      parameters:
+      - description: Данные канала
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.CreateChannelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-models_Channel'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Создание канал
+      tags:
+      - Channel
+  /api/createPost:
+    post:
+      consumes:
+      - application/json
+      description: Создает пост в указанном канале. Пользователь должен быть владельцем
+        канала.
+      parameters:
+      - description: Данные поста (channelId, title, content, tags)
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.CreatePostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-models_Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Создание поста
+      tags:
+      - Post
+  /api/deleteChannel/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет канал, если пользователь является его владельцем
+      parameters:
+      - description: ID канала
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Удаление канала
+      tags:
+      - Channel
+  /api/deleteFile:
+    delete:
+      description: Удаляет файл по имени
+      parameters:
+      - description: Имя файла для удаления
+        in: query
+        name: filename
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Удаление файла
+      tags:
+      - File
+  /api/deletePost/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет пост, если пользователь — владелец канала
+      parameters:
+      - description: Id поста
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Сообщение об успешном удалении
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Удаление поста
+      tags:
+      - Post
+  /api/deleteUser:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет аккаунт пользователя по коду подтверждения
+      parameters:
+      - description: Код подтверждения
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.CodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Удаление аккаунта
+      tags:
+      - User
+  /api/editChannel:
+    patch:
+      consumes:
+      - application/json
+      description: Изменяет название и описание канала пользователя
+      parameters:
+      - description: Обновленные данные канала
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.EditChannelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-models_Channel'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Редактироввние канала
+      tags:
+      - Channel
+  /api/editPost:
+    put:
+      consumes:
+      - application/json
+      description: Изменяет заголовок, содержимое и теги поста. Пользователь должен
+        быть владельцем канала.
+      parameters:
+      - description: Данные для обновления поста (postId, title?, content?, tags?)
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.EditPostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-models_Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Редактирование поста
+      tags:
+      - Post
+  /api/editProfile:
+    patch:
+      consumes:
+      - application/json
+      description: Изменение профиля пользователя
+      parameters:
+      - description: Новые данные профиля
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.EditProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-models_User'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Редактирование профиля
+      tags:
+      - User
+  /api/getChannel/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает информацию о канале по ID
+      parameters:
+      - description: ID канала
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-models_Channel'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Получение канала
+      tags:
+      - Channel
+  /api/getPopularChannels:
+    get:
+      description: Возвращает список каналов, отсортированных по количеству подписчиков
+        по убыванию
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controllers.DataResponse-models_Channel'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Получение популярных каналов
+      tags:
+      - Channel
+  /api/getPost/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает пост с тегами по Id
+      parameters:
+      - description: Id поста
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-models_Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Получение поста
+      tags:
+      - Post
+  /api/getPosts/{channelId}:
+    get:
+      consumes:
+      - application/json
+      description: Получает список постов по Id канала с пагинацией (по 10 на страницу)
+      parameters:
+      - description: Id канала
+        in: path
+        name: channelId
+        required: true
+        type: integer
+      - description: Номер страницы (по умолчанию 1)
+        in: query
+        name: page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controllers.DataResponse-array_models_Post'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Get posts
+      tags:
+      - Post
+  /api/getUserChannels:
+    get:
+      description: Возвращает список каналов, созданных текущим пользователем
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controllers.DataResponse-models_Channel'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Получение каналов пользователя
+      tags:
+      - Channel
+  /api/getUserSubscriptions:
+    get:
+      description: Возвращает список каналов, на которые подписан текущий пользователь
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controllers.DataResponse-models_Channel'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Получение подписок пользователя
+      tags:
+      - Channel
+  /api/login:
+    post:
+      consumes:
+      - application/json
+      description: Авторизация пользователя
+      parameters:
+      - description: Логин и пароль
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-models_User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Авторизация
+      tags:
+      - Auth
+  /api/register:
+    post:
+      consumes:
+      - application/json
+      description: Регистрация нового пользователя
+      parameters:
+      - description: Данные пользователя
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Регистрация пользователя
+      tags:
+      - Auth
+  /api/requestDeletionVerification:
+    post:
+      description: Отправляет код подтверждения на email для удаления аккаунта
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Отправить код подтверждения удаления аккаунта
+      tags:
+      - User
+  /api/requestEmailVerification:
+    post:
+      description: Отправление кода на почту для её подтверждения
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Запрос кода подтверждения email
+      tags:
+      - User
+  /api/requestPasswordReset:
+    post:
+      consumes:
+      - application/json
+      description: Отправление ссылки для сброса пароля на почту пользователя
+      parameters:
+      - description: Email пользователя
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.EmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Запрос на сброс пароля
+      tags:
+      - Auth
+  /api/resetPassword:
+    patch:
+      consumes:
+      - application/json
+      description: Сброс пароля по коду, отправленному на почту
+      parameters:
+      - description: Код и новый пароль
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Сброс пароля
+      tags:
+      - Auth
+  /api/setReaction:
+    post:
+      consumes:
+      - application/json
+      description: Устанавливает реакцию (лайк/дизлайк) пользователя на пост. Повторное
+        нажатие удаляет реакцию
+      parameters:
+      - description: Данные реакции
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.SetReactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Set reaction to post
+      tags:
+      - Post
+  /api/subscribeChannel/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Подписывает пользователя на указанный канал
+      parameters:
+      - description: Id канала
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Подписка на канал
+      tags:
+      - Channel
+  /api/unsubscribeChannel/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Отписывает пользователя от указанного канала
+      parameters:
+      - description: ID канала
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Отписаться от канала
+      tags:
+      - Channel
+  /api/uploadFile:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Загружает файл и возвращает его URL и уникальное имя
+      parameters:
+      - description: Файл для загрузки
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.FileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Загрузка файла
+      tags:
+      - File
+  /api/user:
+    get:
+      description: Получение данных авторизованного пользователя
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-models_User'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Получение данных пользователя
+      tags:
+      - User
+  /api/verifyEmail:
+    post:
+      consumes:
+      - application/json
+      description: Подтверждение email полученным кодом
+      parameters:
+      - description: Код подтверждения
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.CodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Подтверждение email
+      tags:
+      - User
+securityDefinitions:
+  ApiKeyAuth:
+    in: cookie
+    name: jwt
+    type: apiKey
+swagger: "2.0"

@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"blogpoint-backend/internal/models"
 	"fmt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -37,5 +36,5 @@ func Connect() {
 		panic("could not connect to the database")
 	}
 
-	DB.AutoMigrate(&models.User{})
+	//DB.AutoMigrate(&models.User{})
 }

@@ -5,8 +5,15 @@ CREATE TABLE roles (
 );
 
 INSERT INTO roles (name, description) VALUES
-                                          ('user', 'Standard user role'),
-                                          ('moderator', 'Moderator role');
+    ('user', 'Standard user role'),
+    ('moderator', 'Moderator role');
+
+CREATE TABLE files (
+    id SERIAL PRIMARY KEY,
+    filename varchar(200) UNIQUE NOT NULL,
+    mime_type varchar(30) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -14,17 +21,48 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     login VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE,
+    logo_id INT REFERENCES files(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE files ADD COLUMN user_id INT;
+ALTER TABLE files ADD CONSTRAINT fk_files_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+CREATE TABLE verification_codes (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code VARCHAR(6) NOT NULL,
+    type TEXT CHECK (type IN ('email_verification', 'account_deletion', 'password_reset')),
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, type)
+);
+
+CREATE TABLE categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    color VARCHAR(7) NOT NULL
+);
+
+CREATE TABLE tags (
+    id SERIAL PRIMARY KEY,
+    category_id INT REFERENCES categories(id) ON DELETE CASCADE,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    color VARCHAR(7) NOT NULL
 );
 
 CREATE TABLE channels (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT,
-    owner_id INT REFERENCES users(id) ON DELETE CASCADE,
-    subs_count INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    description TEXT DEFAULT '',
+    category_id INT REFERENCES categories(id) ON DELETE SET NULL,
+    owner_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subs_count INT NOT NULL DEFAULT 0 CHECK (subs_count >= 0),
+    logo_id INT REFERENCES files(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
 
 CREATE TABLE subscriptions (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
@@ -40,7 +78,7 @@ CREATE TABLE channel_moderators (
     PRIMARY KEY (channel_id, moderator_id)
 );
 
-CREATE TABLE blogs (
+CREATE TABLE posts (
     id SERIAL PRIMARY KEY,
     channel_id INT REFERENCES channels(id) ON DELETE CASCADE,
     title VARCHAR(200) NOT NULL,
@@ -51,36 +89,30 @@ CREATE TABLE blogs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TYPE media_type AS ENUM ('image', 'video', 'audio');
-
-CREATE TABLE blog_media (
-    id SERIAL PRIMARY KEY,
-    blog_id INT REFERENCES blogs(id) ON DELETE CASCADE,
-    media_type media_type NOT NULL,
-    media_url TEXT UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE post_tags (
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
+    tag_id INT REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (post_id, tag_id)
 );
 
-CREATE TYPE reaction AS ENUM ('like', 'dislike');
-
-CREATE TABLE blog_reactions (
+CREATE TABLE post_reactions (
     id SERIAL PRIMARY KEY,
-    blog_id INT REFERENCES blogs(id) ON DELETE CASCADE,
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    reaction_type reaction NOT NULL,
+    reaction BOOLEAN NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_reaction_per_user UNIQUE (user_id, blog_id)
+    CONSTRAINT unique_reaction_per_user UNIQUE (user_id, post_id)
 );
 
 CREATE TABLE comments (
     id SERIAL PRIMARY KEY,
-    blog_id INT REFERENCES blogs(id) ON DELETE CASCADE,
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TYPE target AS ENUM ('channel', 'blog', 'comment');
+CREATE TYPE target AS ENUM ('channel', 'post', 'comment');
 CREATE TYPE status AS ENUM ('open', 'in progress', 'close');
 
 CREATE TABLE complaints (
@@ -97,29 +129,30 @@ CREATE TABLE complaints (
 
 CREATE OR REPLACE FUNCTION update_likes_dislikes() RETURNS TRIGGER AS $$
 BEGIN
-    IF (TG_OP = 'INSERT') THEN
-        IF (NEW.reaction_type = 'like') THEN
-UPDATE blogs SET likes_count = likes_count + 1 WHERE id = NEW.blog_id;
-ELSIF (NEW.reaction_type = 'dislike') THEN
-UPDATE blogs SET dislikes_count = dislikes_count + 1 WHERE id = NEW.blog_id;
-END IF;
-    ELSIF (TG_OP = 'DELETE') THEN
-        IF (OLD.reaction_type = 'like') THEN
-UPDATE blogs SET likes_count = likes_count - 1 WHERE id = OLD.blog_id;
-ELSIF (OLD.reaction_type = 'dislike') THEN
-UPDATE blogs SET dislikes_count = dislikes_count - 1 WHERE id = OLD.blog_id;
-END IF;
-    ELSIF (TG_OP = 'UPDATE') THEN
-        IF (OLD.reaction_type = 'like' AND NEW.reaction_type = 'dislike') THEN
-UPDATE blogs SET likes_count = likes_count - 1, dislikes_count = dislikes_count + 1 WHERE id = NEW.blog_id;
-ELSIF (OLD.reaction_type = 'dislike' AND NEW.reaction_type = 'like') THEN
-UPDATE blogs SET likes_count = likes_count + 1, dislikes_count = dislikes_count - 1 WHERE id = NEW.blog_id;
-END IF;
-END IF;
-RETURN NEW;
+    CASE TG_OP
+        WHEN 'INSERT' THEN
+            UPDATE posts
+            SET likes_count = likes_count + (NEW.reaction::INT),
+                dislikes_count = dislikes_count + ((NOT NEW.reaction)::INT)
+            WHERE id = NEW.post_id;
+
+        WHEN 'DELETE' THEN
+            UPDATE posts
+            SET likes_count = likes_count - (OLD.reaction::INT),
+                dislikes_count = dislikes_count - ((NOT OLD.reaction)::INT)
+            WHERE id = OLD.post_id;
+
+        WHEN 'UPDATE' THEN
+            UPDATE posts
+            SET likes_count = likes_count + (NEW.reaction::INT) - (OLD.reaction::INT),
+                dislikes_count = dislikes_count + ((NOT NEW.reaction)::INT) - ((NOT OLD.reaction)::INT)
+            WHERE id = NEW.post_id;
+    END CASE;
+
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_likes_dislikes_trigger
-    AFTER INSERT OR DELETE OR UPDATE ON blog_reactions
+AFTER INSERT OR DELETE OR UPDATE ON post_reactions
 FOR EACH ROW EXECUTE FUNCTION update_likes_dislikes();
