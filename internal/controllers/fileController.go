@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"blogpoint-backend/internal/storage"
-	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"io"
 	"net/http"
@@ -16,28 +16,47 @@ func GenerateUniqueFilename(filename string) string {
 }
 
 // UploadFileHandler обрабатывает загрузку файла
-func UploadFileHandler(c fiber.Ctx) error {
+// @Summary Загрузка файла
+// @Description Загружает файл и возвращает его URL и уникальное имя
+// @Tags File
+// @Security ApiKeyAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Файл для загрузки"
+// @Success 200 {object} FileResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/uploadFile [post]
+func UploadFileHandler(c *fiber.Ctx) error {
 	// Читаем файл из запроса
 	file, err := c.FormFile("file")
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Ошибка при получении файла")
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Message: "Ошибка при получении файла",
+		})
 	}
 
 	// Открываем файл
 	src, err := file.Open()
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Ошибка открытия файла")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Ошибка открытия файла",
+		})
 	}
 	defer src.Close()
 
 	// Определяем MIME-тип
 	buffer := make([]byte, 512)
 	if _, err := src.Read(buffer); err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Ошибка при чтении файла")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Ошибка при чтении файла",
+		})
 	}
 	// Возвращаемся в начало файла, так как Read сместил указатель
 	if _, err := src.Seek(0, io.SeekStart); err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Ошибка при сбросе указателя файла")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Ошибка при сбросе указателя файла",
+		})
 	}
 	mimeType := http.DetectContentType(buffer)
 
@@ -47,26 +66,43 @@ func UploadFileHandler(c fiber.Ctx) error {
 	// Загружаем файл в MinIO
 	url, err := storage.UploadFile(c.Context(), uniqueFilename, src, file.Size, mimeType)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Ошибка загрузки файла")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Ошибка загрузки файла",
+		})
 	}
 
-	return c.JSON(fiber.Map{
-		"filename": uniqueFilename,
-		"url":      url,
+	return c.JSON(FileResponse{
+		Filename: uniqueFilename,
+		Url:      url,
 	})
 }
 
 // DeleteFileHandler обрабатывает удаление файла
-func DeleteFileHandler(c fiber.Ctx) error {
+// @Summary Удаление файла
+// @Description Удаляет файл по имени
+// @Tags File
+// @Security ApiKeyAuth
+// @Produce json
+// @Param filename query string true "Имя файла для удаления"
+// @Success 200 {object} MessageResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/deleteFile [delete]
+func DeleteFileHandler(c *fiber.Ctx) error {
 	filename := c.Query("filename")
 	if filename == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "Необходимо указать имя файла")
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Message: "Необходимо указать имя файла",
+		})
 	}
 
 	err := storage.DeleteFile(c.Context(), filename)
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Ошибка удаления файла",
+		})
 	}
 
-	return c.JSON(fiber.Map{"message": "Файл удален"})
+	return c.JSON(MessageResponse{
+		Message: "Файл удален"})
 }

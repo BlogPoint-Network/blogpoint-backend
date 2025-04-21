@@ -39,14 +39,27 @@ CREATE TABLE verification_codes (
     UNIQUE (user_id, type)
 );
 
+CREATE TABLE categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    color VARCHAR(7) NOT NULL
+);
+
+CREATE TABLE tags (
+    id SERIAL PRIMARY KEY,
+    category_id INT REFERENCES categories(id) ON DELETE CASCADE,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    color VARCHAR(7) NOT NULL
+);
+
 CREATE TABLE channels (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT DEFAULT '',
+    category_id INT REFERENCES categories(id) ON DELETE SET NULL,
     owner_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     subs_count INT NOT NULL DEFAULT 0 CHECK (subs_count >= 0),
     logo_id INT REFERENCES files(id) ON DELETE SET NULL,
-    banner_id INT REFERENCES files(id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -74,19 +87,6 @@ CREATE TABLE posts (
     dislikes_count INT DEFAULT 0,
     views_count INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE categories (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    color VARCHAR(7) NOT NULL
-);
-
-CREATE TABLE tags (
-    id SERIAL PRIMARY KEY,
-    category_id INT REFERENCES categories(id) ON DELETE CASCADE,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    color VARCHAR(7) NOT NULL
 );
 
 CREATE TABLE post_tags (

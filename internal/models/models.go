@@ -19,13 +19,14 @@ type VerificationCode struct {
 }
 
 type Channel struct {
-	Id          uint   `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	OwnerId     uint   `json:"ownerId"`
-	SubsCount   uint   `json:"subsCount"`
-	LogoId      *uint  `json:"logoId"`
-	BannerId    *uint  `json:"bannerId"`
+	Id          uint      `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	CategoryId  *uint     `json:"-"`
+	Category    *Category `json:"category"`
+	OwnerId     uint      `json:"ownerId"`
+	SubsCount   uint      `json:"subsCount"`
+	LogoId      *uint     `json:"logoId"`
 }
 
 type Post struct {
@@ -43,7 +44,6 @@ type Category struct {
 	Id    uint   `json:"id"`
 	Name  string `json:"name"`
 	Color string `json:"color"`
-	Tags  []Tag  `json:"tags"`
 }
 
 type Tag struct {

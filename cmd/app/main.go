@@ -1,15 +1,28 @@
 package main
 
 import (
+	_ "blogpoint-backend/docs"
 	"blogpoint-backend/internal/mail"
 	"blogpoint-backend/internal/repository"
 	"blogpoint-backend/internal/routes"
 	"blogpoint-backend/internal/storage"
 	"blogpoint-backend/utils"
-	"github.com/gofiber/fiber/v3"
-	"github.com/gofiber/fiber/v3/middleware/cors"
+	"fmt"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/swagger"
 )
 
+// @title BlogPoint API
+// @version 1.0
+// @description API для BlogPoint
+
+// @host localhost:8000
+// @BasePath /
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in cookie
+// @name jwt
 func main() {
 	repository.Connect()
 	storage.InitMinio()
@@ -21,7 +34,7 @@ func main() {
 	})
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     "http://localhost:5173",
 		AllowCredentials: true,
 	}))
 
@@ -29,5 +42,11 @@ func main() {
 
 	utils.StartCleanupTask()
 
-	app.Listen(":8000")
+	app.Get("/swagger/*", swagger.HandlerDefault)
+
+	err := app.Listen(":8000")
+
+	if err != nil {
+		fmt.Printf("fiber.Listen failed %s", err)
+	}
 }

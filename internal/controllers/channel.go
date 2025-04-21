@@ -5,16 +5,27 @@ import (
 	"blogpoint-backend/internal/repository"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 	"strconv"
 )
 
-func CreateChannel(c fiber.Ctx) error {
+// CreateChannel создает новый канал
+// @Summary      Создание канал
+// @Description  Создает канал для текущего пользователя
+// @Tags         Channel
+// @Security     ApiKeyAuth
+// @Accept       json
+// @Produce      json
+// @Param        data  body      CreateChannelRequest true "Данные канала"
+// @Success      200   {object}  DataResponse[models.Channel]
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Router       /api/createChannel [post]
+func CreateChannel(c *fiber.Ctx) error {
 
-	var data map[string]string
+	var data CreateChannelRequest
 
 	if err := json.Unmarshal(c.Body(), &data); err != nil {
 		return err
@@ -26,16 +37,16 @@ func CreateChannel(c fiber.Ctx) error {
 
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Unauthenticated",
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
 		})
 	}
 
 	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
 	if !ok {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Invalid token",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
 		})
 	}
 
@@ -44,47 +55,60 @@ func CreateChannel(c fiber.Ctx) error {
 		uintId = uint(parsedId)
 	} else {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Invalid issuer Id",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid issuer Id",
 		})
 	}
 
-	var name string
-	var description string
-
-	if data["name"] != "" {
-		name = data["name"]
-	} else {
+	if data.Name == "" {
 		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"message": "Incorrect data",
+		return c.JSON(ErrorResponse{
+			Message: "Incorrect data",
 		})
 	}
-	if data["description"] != "" {
-		description = data["description"]
+
+	if data.CategoryId != nil {
+		var category models.Category
+		if err := repository.DB.First(&category, data.CategoryId).Error; err != nil {
+			c.Status(fiber.StatusNotFound)
+			return c.JSON(ErrorResponse{
+				Message: "Category not found",
+			})
+		}
 	}
 
 	channel := models.Channel{
-		Name:        name,
-		Description: description,
+		Name:        data.Name,
+		Description: data.Description,
+		CategoryId:  data.CategoryId,
 		OwnerId:     uintId,
-		LogoId:      nil,
-		BannerId:    nil,
 	}
 	repository.DB.Create(&channel)
+	repository.DB.Preload("Category").First(&channel, channel.Id)
 
-	//channel := models.Channel{
-	//	Name:        name,
-	//	Description: description,
-	//	OwnerId:     uintId,
-	//}
-	//repository.DB.Select("Name", "Description", "OwnerId").Create(&channel)
-
-	return c.JSON(channel)
+	return c.JSON(DataResponse[models.Channel]{
+		Data:    channel,
+		Message: "Channel created successfully",
+	})
 }
 
-func EditChannel(c fiber.Ctx) error {
-	var data map[string]string
+// EditChannel редактирует существующий канал
+// @Summary      Редактироввние канала
+// @Description  Изменяет название и описание канала пользователя
+// @Tags         Channel
+// @Security     ApiKeyAuth
+// @Accept       json
+// @Produce      json
+// @Param        data  body      EditChannelRequest true "Обновленные данные канала"
+// @Success      200   {object}  DataResponse[models.Channel]
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      403   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Router       /api/editChannel [patch]
+func EditChannel(c *fiber.Ctx) error {
+	var data EditChannelRequest
 
 	if err := json.Unmarshal(c.Body(), &data); err != nil {
 		return err
@@ -96,160 +120,182 @@ func EditChannel(c fiber.Ctx) error {
 
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Unauthenticated",
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
 		})
 	}
 
 	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
 	if !ok {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Invalid token",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
 		})
 	}
 
-	uintId, err := strconv.ParseUint(strId, 10, 32)
+	Id, err := strconv.ParseUint(strId, 10, 32)
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Invalid issuer id",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid issuer id",
 		})
 	}
 
-	if data["channelId"] == "" {
+	if data.ChannelId == 0 {
 		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"message": "Channel id is required",
-		})
-	}
-
-	channelId, err := strconv.ParseUint(data["channelId"], 10, 32)
-	if err != nil {
-		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"message": "Invalid channel id",
+		return c.JSON(ErrorResponse{
+			Message: "Channel id is required",
 		})
 	}
 
 	var channel models.Channel
-	if result := repository.DB.First(&channel, uint(channelId)); result.Error != nil {
+	if result := repository.DB.First(&channel, data.ChannelId); result.Error != nil {
 		c.Status(fiber.StatusNotFound)
-		return c.JSON(fiber.Map{
-			"message": "Channel not found",
+		return c.JSON(ErrorResponse{
+			Message: "Channel not found",
 		})
 	}
 
-	if channel.OwnerId != uint(uintId) {
+	if channel.OwnerId != uint(Id) {
 		c.Status(fiber.StatusForbidden)
-		return c.JSON(fiber.Map{
-			"message": "You are not the owner of this channel",
+		return c.JSON(ErrorResponse{
+			Message: "You are not the owner of this channel",
 		})
 	}
 
-	if data["name"] != "" {
-		channel.Name = data["name"]
+	if data.Name != "" {
+		channel.Name = data.Name
 	}
-	if data["description"] != "" {
-		channel.Description = data["description"]
+	if data.Description != "" {
+		channel.Description = data.Description
+	}
+
+	if data.CategoryId != nil {
+		if *data.CategoryId == 0 {
+			channel.CategoryId = nil
+		} else {
+			var category models.Category
+			if err := repository.DB.First(&category, *data.CategoryId).Error; err != nil {
+				c.Status(fiber.StatusNotFound)
+				return c.JSON(ErrorResponse{
+					Message: "Category not found",
+				})
+			}
+			channel.CategoryId = data.CategoryId
+		}
 	}
 
 	if err := repository.DB.Save(&channel).Error; err != nil {
 		c.Status(fiber.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"message": "Failed to update channel",
+		return c.JSON(ErrorResponse{
+			Message: "Failed to update channel",
 		})
 	}
+	repository.DB.Preload("Category").First(&channel, channel.Id)
 
-	return c.JSON(channel)
+	return c.JSON(DataResponse[models.Channel]{
+		Data:    channel,
+		Message: "Channel edited successfully",
+	})
 }
 
-func DeleteChannel(c fiber.Ctx) error {
-	var data map[string]string
-
-	if err := json.Unmarshal(c.Body(), &data); err != nil {
-		fmt.Println(err)
-		return err
-	}
-
+// DeleteChannel удаляет канал
+// @Summary      Удаление канала
+// @Description  Удаляет канал, если пользователь является его владельцем
+// @Tags         Channel
+// @Security     ApiKeyAuth
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int true "ID канала"
+// @Success      200   {object}  MessageResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      403   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Router       /api/deleteChannel/{id} [delete]
+func DeleteChannel(c *fiber.Ctx) error {
 	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Unauthenticated",
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
 		})
 	}
 
 	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
 	if !ok {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Invalid token",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
 		})
 	}
 
-	uintId, err := strconv.ParseUint(strId, 10, 32)
+	userId, err := strconv.ParseUint(strId, 10, 32)
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Invalid issuer id",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid issuer id",
 		})
 	}
 
-	if data["channelId"] == "" {
+	channelId, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil || channelId == 0 {
 		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"message": "Channel id is required",
-		})
-	}
-
-	channelId, err := strconv.ParseUint(data["channelId"], 10, 32)
-	if err != nil {
-		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"message": "Invalid channel id",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid channel id",
 		})
 	}
 
 	var channel models.Channel
-	if result := repository.DB.First(&channel, uint(channelId)); result.Error != nil {
+	if result := repository.DB.First(&channel, channelId); result.Error != nil {
 		c.Status(fiber.StatusNotFound)
-		return c.JSON(fiber.Map{
-			"message": "Channel not found",
+		return c.JSON(ErrorResponse{
+			Message: "Channel not found",
 		})
 	}
 
-	if channel.OwnerId != uint(uintId) {
+	if channel.OwnerId != uint(userId) {
 		c.Status(fiber.StatusForbidden)
-		return c.JSON(fiber.Map{
-			"message": "You are not the owner of this channel",
+		return c.JSON(ErrorResponse{
+			Message: "You are not the owner of this channel",
 		})
 	}
 
 	if err := repository.DB.Delete(&channel).Error; err != nil {
 		c.Status(fiber.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"message": "Failed to delete channel",
+		return c.JSON(ErrorResponse{
+			Message: "Failed to delete channel",
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Channel successfully deleted",
+	return c.JSON(MessageResponse{
+		Message: "Channel successfully deleted",
 	})
 }
 
-func GetUserSubscriptions(c fiber.Ctx) error {
+// GetUserSubscriptions возвращает список каналов, на которые подписан пользователь
+// @Summary      Получение подписок пользователя
+// @Description  Возвращает список каналов, на которые подписан текущий пользователь
+// @Tags         Channel
+// @Security     ApiKeyAuth
+// @Produce      json
+// @Success      200  {array}   DataResponse[models.Channel]
+// @Failure      401  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /api/getUserSubscriptions [get]
+func GetUserSubscriptions(c *fiber.Ctx) error {
 	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Unauthenticated",
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
 		})
 	}
 
@@ -260,29 +306,41 @@ func GetUserSubscriptions(c fiber.Ctx) error {
 		Where("subscriptions.user_id = ?", claims["iss"]).
 		Find(&channels).Error; err != nil {
 		c.Status(fiber.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"message": "Failed to retrieve subscriptions",
+		return c.JSON(ErrorResponse{
+			Message: "Failed to retrieve subscriptions",
 		})
 	}
 
 	if len(channels) == 0 {
-		return c.JSON(fiber.Map{
-			"message": "No subscriptions found",
+		return c.JSON(ErrorResponse{
+			Message: "No subscriptions found",
 		})
 	}
 
-	return c.JSON(channels)
+	return c.JSON(DataResponse[[]models.Channel]{
+		Data: channels,
+	})
 }
 
-func GetUserChannels(c fiber.Ctx) error {
+// GetUserChannels возвращает каналы, созданные пользователем
+// @Summary      Получение каналов пользователя
+// @Description  Возвращает список каналов, созданных текущим пользователем
+// @Tags         Channel
+// @Security     ApiKeyAuth
+// @Produce      json
+// @Success      200  {array}   DataResponse[models.Channel]
+// @Failure      401  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /api/getUserChannels [get]
+func GetUserChannels(c *fiber.Ctx) error {
 	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Unauthenticated",
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
 		})
 	}
 
@@ -291,37 +349,45 @@ func GetUserChannels(c fiber.Ctx) error {
 	var channels []models.Channel
 	if err := repository.DB.Where("owner_id = ?", claims["iss"]).Find(&channels).Error; err != nil {
 		c.Status(fiber.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"message": "Failed to retrieve channels",
+		return c.JSON(ErrorResponse{
+			Message: "Failed to retrieve channels",
 		})
 	}
 
 	if len(channels) == 0 {
-		return c.JSON(fiber.Map{
-			"message": "No channels found",
+		return c.JSON(ErrorResponse{
+			Message: "No channels found",
 		})
 	}
 
-	return c.JSON(channels)
+	return c.JSON(DataResponse[[]models.Channel]{
+		Data: channels,
+	})
 }
 
-func GetChannel(c fiber.Ctx) error {
-	var data map[string]uint
-
-	if err := json.Unmarshal(c.Body(), &data); err != nil {
-		return err
-	}
-
-	_, ok := data["channelId"]
-	if !ok {
+// GetChannel возвращает информацию о канале
+// @Summary      Получение канала
+// @Description  Возвращает информацию о канале по ID
+// @Tags         Channel
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int true "ID канала"
+// @Success      200   {object}  DataResponse[models.Channel]
+// @Failure      400   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Router       /api/getChannel/{id} [get]
+func GetChannel(c *fiber.Ctx) error {
+	Id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil || Id == 0 {
 		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"message": "Channel Id is required",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid channel id",
 		})
 	}
 
 	var channel models.Channel
-	if err := repository.DB.First(&channel, data["channelId"]).Error; err != nil {
+	if err := repository.DB.First(&channel, Id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.Status(fiber.StatusNotFound)
 			return c.JSON(fiber.Map{
@@ -329,93 +395,106 @@ func GetChannel(c fiber.Ctx) error {
 			})
 		}
 		c.Status(fiber.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"message": "Failed to retrieve channel",
+		return c.JSON(ErrorResponse{
+			Message: "Failed to retrieve channel",
 		})
 	}
 
-	return c.JSON(channel)
+	return c.JSON(DataResponse[models.Channel]{
+		Data: channel,
+	})
 }
 
-func GetPopularChannels(c fiber.Ctx) error {
+// GetPopularChannels возвращает популярные каналы
+// @Summary      Получение популярных каналов
+// @Description  Возвращает список каналов, отсортированных по количеству подписчиков по убыванию
+// @Tags         Channel
+// @Produce      json
+// @Success      200  {array}   DataResponse[models.Channel]
+// @Failure      500  {object}  ErrorResponse
+// @Router       /api/getPopularChannels [get]
+func GetPopularChannels(c *fiber.Ctx) error {
 	var channels []models.Channel
 
 	if err := repository.DB.Order("subs_count DESC").Find(&channels).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "Failed to retrieve popular channels"})
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to retrieve popular channels"})
 	}
 
 	if len(channels) == 0 {
-		return c.JSON(fiber.Map{
-			"message": "No channels found",
+		return c.JSON(ErrorResponse{
+			Message: "No channels found",
 		})
 	}
 
-	return c.JSON(channels)
+	return c.JSON(DataResponse[[]models.Channel]{
+		Data: channels,
+	})
 }
 
-func SubscribeChannel(c fiber.Ctx) error {
-	var data map[string]string
-
-	if err := json.Unmarshal(c.Body(), &data); err != nil {
-		return err
-	}
-
+// SubscribeChannel подписывает пользователя на канал
+// @Summary      Подписка на канал
+// @Description  Подписывает пользователя на указанный канал
+// @Tags         Channel
+// @Security     ApiKeyAuth
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int true "Id канала"
+// @Success      200   {object}  MessageResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Failure      409   {object}  ErrorResponse
+// @Router       /api/subscribeChannel/{id} [post]
+func SubscribeChannel(c *fiber.Ctx) error {
 	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Unauthenticated",
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
 		})
 	}
 
 	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
 	if !ok {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Invalid token",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
 		})
 	}
 
 	userId, err := strconv.ParseUint(strId, 10, 32)
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Invalid user Id",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid user Id",
 		})
 	}
 
-	if data["channelId"] == "" {
+	channelId, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil || channelId == 0 {
 		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"message": "Channel Id is required",
-		})
-	}
-
-	channelId, err := strconv.ParseUint(data["channelId"], 10, 32)
-	if err != nil {
-		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"message": "Invalid channel Id",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid channel id",
 		})
 	}
 
 	var channel models.Channel
-	if result := repository.DB.First(&channel, uint(channelId)); result.Error != nil {
+	if result := repository.DB.First(&channel, channelId); result.Error != nil {
 		c.Status(fiber.StatusNotFound)
-		return c.JSON(fiber.Map{
-			"message": "Channel not found",
+		return c.JSON(ErrorResponse{
+			Message: "Channel not found",
 		})
 	}
 
 	var subscription models.Subscription
 	if result := repository.DB.Where("user_id = ? AND channel_id = ?", userId, channelId).First(&subscription); result.Error == nil {
 		c.Status(fiber.StatusConflict)
-		return c.JSON(fiber.Map{
-			"message": "Already subscribed",
+		return c.JSON(ErrorResponse{
+			Message: "Already subscribed",
 		})
 	}
 
@@ -428,74 +507,74 @@ func SubscribeChannel(c fiber.Ctx) error {
 
 	repository.DB.Model(&channel).Update("subs_count", channel.SubsCount+1)
 
-	return c.JSON(fiber.Map{
-		"message": "Subscription successful",
+	return c.JSON(MessageResponse{
+		Message: "Subscription successful",
 	})
 
 }
 
-func UnsubscribeChannel(c fiber.Ctx) error {
-	var data map[string]string
-
-	if err := json.Unmarshal(c.Body(), &data); err != nil {
-		return err
-	}
-
+// UnsubscribeChannel отписывает пользователя от канала
+// @Summary      Отписаться от канала
+// @Description  Отписывает пользователя от указанного канала
+// @Tags         Channel
+// @Security     ApiKeyAuth
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int true "ID канала"
+// @Success      200   {object}  MessageResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Router       /api/unsubscribeChannel/{id} [delete]
+func UnsubscribeChannel(c *fiber.Ctx) error {
 	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
 
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Unauthenticated",
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
 		})
 	}
 
 	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
 	if !ok {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Invalid token",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
 		})
 	}
 
 	userId, err := strconv.ParseUint(strId, 10, 32)
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Invalid user Id",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid user Id",
 		})
 	}
 
-	if data["channelId"] == "" {
+	channelId, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil || channelId == 0 {
 		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"message": "Channel Id is required",
-		})
-	}
-
-	channelId, err := strconv.ParseUint(data["channelId"], 10, 32)
-	if err != nil {
-		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"message": "Invalid channel Id",
+		return c.JSON(ErrorResponse{
+			Message: "Invalid channel id",
 		})
 	}
 
 	var channel models.Channel
-	if result := repository.DB.First(&channel, uint(channelId)); result.Error != nil {
+	if result := repository.DB.First(&channel, channelId); result.Error != nil {
 		c.Status(fiber.StatusNotFound)
-		return c.JSON(fiber.Map{
-			"message": "Channel not found",
+		return c.JSON(ErrorResponse{
+			Message: "Channel not found",
 		})
 	}
 
 	result := repository.DB.Where("user_id = ? AND channel_id = ?", userId, channelId).Delete(&models.Subscription{})
 	if result.RowsAffected == 0 {
 		c.Status(fiber.StatusNotFound)
-		return c.JSON(fiber.Map{
-			"message": "Not subscribed",
+		return c.JSON(ErrorResponse{
+			Message: "Not subscribed",
 		})
 	}
 
@@ -503,7 +582,7 @@ func UnsubscribeChannel(c fiber.Ctx) error {
 		repository.DB.Model(&channel).Update("subs_count", channel.SubsCount-1)
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Unsubscribed successfully",
+	return c.JSON(MessageResponse{
+		Message: "Unsubscribed successfully",
 	})
 }
