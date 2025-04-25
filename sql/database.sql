@@ -15,6 +15,18 @@ CREATE TABLE files (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- CREATE TABLE files (
+--     id SERIAL PRIMARY KEY,
+--     owner_id INT NOT NULL,
+--     filename varchar(200) UNIQUE NOT NULL,
+--     url VARCHAR(200) NOT NULL,
+--     mime_type varchar(30) NOT NULL,
+--     used_in VARCHAR(20) NOT NULL CHECK (used_in IN ('user_avatar', 'channel_avatar', 'post_preview', 'post_content', 'post_media')),
+--     entity_id INT NOT NULL,
+--     name VARCHAR(100) DEFAULT NULL,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
+
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     role_id INT REFERENCES roles(id) DEFAULT 1,
@@ -109,8 +121,11 @@ CREATE TABLE comments (
     post_id INT REFERENCES posts(id) ON DELETE CASCADE,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
+    is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE comments ADD COLUMN parent_id INT REFERENCES comments(id) ON DELETE CASCADE;
 
 CREATE TYPE target AS ENUM ('channel', 'post', 'comment');
 CREATE TYPE status AS ENUM ('open', 'in progress', 'close');

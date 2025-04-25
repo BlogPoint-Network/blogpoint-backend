@@ -30,14 +30,15 @@ type Channel struct {
 }
 
 type Post struct {
-	Id            uint   `json:"id"`
-	ChannelId     uint   `json:"channelId"`
-	Title         string `json:"title"`
-	Content       string `json:"content"`
-	LikesCount    uint   `json:"likesCount"`
-	DislikesCount uint   `json:"dislikesCount"`
-	ViewsCount    uint   `json:"viewsCount"`
-	Tags          []Tag  `gorm:"many2many:post_tags;" json:"tags"`
+	Id            uint      `json:"id"`
+	ChannelId     uint      `json:"channelId"`
+	Title         string    `json:"title"`
+	Content       string    `json:"content"`
+	LikesCount    uint      `json:"likesCount"`
+	DislikesCount uint      `json:"dislikesCount"`
+	ViewsCount    uint      `json:"viewsCount"`
+	Tags          []Tag     `gorm:"many2many:post_tags;" json:"tags"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
 type Category struct {
@@ -65,6 +66,17 @@ type PostReaction struct {
 	Reaction bool `json:"reaction"`
 }
 
+type Comment struct {
+	Id        uint      `json:"id"`
+	ParentId  *uint     `json:"parentId,omitempty"`
+	PostId    uint      `json:"postId"`
+	UserId    uint      `json:"userId"`
+	Content   string    `json:"content"`
+	IsDeleted bool      `json:"isDeleted"`
+	CreatedAt time.Time `json:"createdAt"`
+	Replies   []Comment `json:"replies,omitempty" gorm:"-"`
+}
+
 type Subscription struct {
 	UserId    uint `json:"userId"`
 	ChannelId uint `json:"channelId"`
@@ -76,3 +88,14 @@ type File struct {
 	Filename string `json:"title"`
 	MimeType string `json:"MimeType"`
 }
+
+//type File struct {
+//	Id       uint   `json:"id"`
+//	OwnerId  uint   `json:"channelId"`
+//	Filename string `json:"title"`
+//	Url      string `json:"url"`
+//	MimeType string `json:"MimeType"`
+//	UsedIn   string `json:"usedIn"`
+//	EntityId uint   `json:"entityId"`
+//	Name     string `json:"name"`
+//}

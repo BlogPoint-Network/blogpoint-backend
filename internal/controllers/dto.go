@@ -1,5 +1,7 @@
 package controllers
 
+import "blogpoint-backend/internal/models"
+
 type DataResponse[T any] struct {
 	Data    T      `json:"data"`
 	Message string `json:"message,omitempty"`
@@ -10,12 +12,31 @@ type MessageResponse struct {
 }
 
 type FileResponse struct {
-	Filename string `json:"message"`
+	Filename string `json:"filename"`
 	Url      string `json:"url"`
 }
 
 type ErrorResponse struct {
 	Message string `json:"message" example:"Example"`
+}
+
+type PostResponse struct {
+	models.Post
+	Comments []CommentResponse `json:"comments"`
+}
+
+type CommentResponse struct {
+	Id           uint   `json:"id"`
+	PostId       uint   `json:"postId"`
+	ParentId     *uint  `json:"parentId,omitempty"`
+	Content      string `json:"content"`
+	IsDeleted    bool   `json:"isDeleted"`
+	RepliesCount int    `json:"repliesCount"`
+	User         struct {
+		Id       uint   `json:"id"`
+		Username string `json:"username"`
+		//AvatarURL string `json:"avatarUrl"`
+	} `json:"user"`
 }
 
 type RegisterRequest struct {
@@ -59,27 +80,33 @@ type CreateChannelRequest struct {
 }
 
 type EditChannelRequest struct {
-	ChannelId   int    `json:"channelId" example:"1"`
+	ChannelId   uint   `json:"channelId" example:"1"`
 	Name        string `json:"name" example:"BlogPoint News"`
 	Description string `json:"description" example:"More blogs here"`
 	CategoryId  *uint  `json:"categoryId" example:"12"`
 }
 
 type CreatePostRequest struct {
-	ChannelId int    `json:"channelId" example:"1"`
+	ChannelId uint   `json:"channelId" example:"1"`
 	Title     string `json:"title" example:"Today's news"`
 	Content   string `json:"content" example:"Something here"`
 	Tags      string `json:"tags" example:"Новости, Журналистика, Статьи"`
 }
 
 type EditPostRequest struct {
-	PostId  int    `json:"postId" example:"1"`
+	PostId  uint   `json:"postId" example:"1"`
 	Title   string `json:"title" example:"Today's news"`
 	Content string `json:"content" example:"Something here"`
 	Tags    string `json:"tags" example:"Новости, Журналистика, Статьи"`
 }
 
 type SetReactionRequest struct {
-	PostId   int    `json:"postId" example:"1"`
+	PostId   uint   `json:"postId" example:"1"`
 	Reaction string `json:"reaction" example:"like"`
+}
+
+type CreateCommentRequest struct {
+	PostId   uint   `json:"postId" example:"1"`
+	Content  string `json:"content" example:"1"`
+	ParentId *uint  `json:"parentId" example:"1"`
 }

@@ -108,7 +108,7 @@ func CreatePost(c *fiber.Ctx) error {
 	}
 
 	post := models.Post{
-		ChannelId: uint(data.ChannelId),
+		ChannelId: data.ChannelId,
 		Title:     data.Title,
 		Content:   data.Content,
 	}
@@ -325,7 +325,7 @@ func DeletePost(c *fiber.Ctx) error {
 		})
 	}
 
-	uintId, err := strconv.ParseUint(strId, 10, 32)
+	userId, err := strconv.ParseUint(strId, 10, 32)
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
 		return c.JSON(ErrorResponse{
@@ -357,7 +357,7 @@ func DeletePost(c *fiber.Ctx) error {
 		})
 	}
 
-	if channel.OwnerId != uint(uintId) {
+	if channel.OwnerId != uint(userId) {
 		c.Status(fiber.StatusForbidden)
 		return c.JSON(ErrorResponse{
 			Message: "You are not the owner of this post",
@@ -395,8 +395,8 @@ func GetPost(c *fiber.Ctx) error {
 			Message: "Invalid post id",
 		})
 	}
-	var post models.Post
 
+	var post models.Post
 	if err := repository.DB.Preload("Tags").First(&post, Id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -408,14 +408,85 @@ func GetPost(c *fiber.Ctx) error {
 		})
 	}
 
+	var comments []models.Comment
+	if err := repository.DB.Where("post_id = ? AND parent_id IS NULL", post.Id).
+		Order("created_at ASC").Find(&comments).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to load comments",
+		})
+	}
+
+	userIds := make([]uint, 0)
+	for _, c := range comments {
+		userIds = append(userIds, c.UserId)
+	}
+
+	var users []models.User
+	if len(userIds) > 0 {
+		repository.DB.Where("id IN ?", userIds).Find(&users)
+	}
+
+	userMap := make(map[uint]models.User)
+	for _, u := range users {
+		userMap[u.Id] = u
+	}
+
+	type CountResult struct {
+		ParentID uint
+		Count    int
+	}
+
+	var counts []CountResult
+	repository.DB.Table("comments").
+		Select("parent_id, COUNT(*) as count").
+		Where("post_id = ? AND parent_id IS NOT NULL", post.Id).
+		Group("parent_id").
+		Scan(&counts)
+
+	replyCountMap := make(map[uint]int)
+	for _, c := range counts {
+		replyCountMap[c.ParentID] = c.Count
+	}
+
+	var commentResponses []CommentResponse
+	for _, cmt := range comments {
+		resp := CommentResponse{
+			Id:           cmt.Id,
+			PostId:       cmt.PostId,
+			ParentId:     nil,
+			Content:      cmt.Content,
+			IsDeleted:    cmt.IsDeleted,
+			RepliesCount: replyCountMap[cmt.Id],
+		}
+
+		if user, ok := userMap[cmt.UserId]; ok {
+			resp.User = struct {
+				Id       uint   `json:"id"`
+				Username string `json:"username"`
+				//AvatarURL string `json:"avatarUrl"`
+			}{
+				Id:       user.Id,
+				Username: user.Login,
+				//AvatarURL: user.AvatarUrl,
+			}
+		}
+
+		commentResponses = append(commentResponses, resp)
+	}
+
 	if err := repository.DB.Model(&post).UpdateColumn("views_count", gorm.Expr("views_count + 1")).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Message: "Failed to update view count",
 		})
 	}
 
-	return c.JSON(DataResponse[models.Post]{
-		Data: post,
+	postResponse := PostResponse{
+		Post:     post,
+		Comments: commentResponses,
+	}
+
+	return c.JSON(DataResponse[PostResponse]{
+		Data: postResponse,
 	})
 }
 
@@ -525,7 +596,8 @@ func SetReaction(c *fiber.Ctx) error {
 	reactionValue := data.Reaction == "like"
 
 	var existingReaction models.PostReaction
-	if err := repository.DB.Where("post_id = ? AND user_id = ?", data.PostId, userId).First(&existingReaction).Error; err == nil {
+	if err := repository.DB.Where("post_id = ? AND user_id = ?", data.PostId, userId).
+		First(&existingReaction).Error; err == nil {
 		if existingReaction.Reaction == reactionValue {
 			if err := repository.DB.Delete(&existingReaction).Error; err != nil {
 				c.Status(fiber.StatusInternalServerError)
@@ -551,7 +623,7 @@ func SetReaction(c *fiber.Ctx) error {
 	}
 
 	newReaction := models.PostReaction{
-		PostId:   uint(data.PostId),
+		PostId:   data.PostId,
 		UserId:   uint(userId),
 		Reaction: reactionValue,
 	}
@@ -566,4 +638,251 @@ func SetReaction(c *fiber.Ctx) error {
 	return c.JSON(MessageResponse{
 		Message: "Reaction added",
 	})
+}
+
+func CreateComment(c *fiber.Ctx) error {
+	var data CreateCommentRequest
+
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Message: "Invalid input",
+		})
+	}
+
+	if data.Content == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Message: "Content is required",
+		})
+	}
+
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
+		})
+	}
+
+	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
+	if !ok {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
+		})
+	}
+
+	userId, err := strconv.ParseUint(strId, 10, 32)
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid issuer id",
+		})
+	}
+
+	var post models.Post
+	if result := repository.DB.First(&post, data.PostId); result.Error != nil {
+		c.Status(fiber.StatusNotFound)
+		return c.JSON(ErrorResponse{
+			Message: "Post not found",
+		})
+	}
+
+	if data.ParentId != nil {
+		var parent models.Comment
+		if err := repository.DB.First(&parent, *data.ParentId).Error; err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Message: "Parent comment not found",
+			})
+		}
+		if parent.PostId != data.PostId {
+			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+				Message: "Parent comment does not belong to this post",
+			})
+		}
+	}
+
+	comment := models.Comment{
+		PostId:   data.PostId,
+		UserId:   uint(userId),
+		Content:  data.Content,
+		ParentId: data.ParentId,
+	}
+
+	if err := repository.DB.Create(&comment).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to create comment",
+		})
+	}
+
+	return c.JSON(DataResponse[models.Comment]{
+		Data:    comment,
+		Message: "Comment created successfully",
+	})
+}
+
+func DeleteComment(c *fiber.Ctx) error {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
+		})
+	}
+
+	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
+	if !ok {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
+		})
+	}
+
+	userId, err := strconv.ParseUint(strId, 10, 32)
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid issuer id",
+		})
+	}
+
+	Id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil || Id == 0 {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid comment id",
+		})
+	}
+
+	var comment models.Comment
+	if err := repository.DB.First(&comment, Id).Error; err != nil {
+		c.Status(fiber.StatusNotFound)
+		return c.JSON(ErrorResponse{
+			Message: "Comment not found",
+		})
+	}
+
+	if comment.UserId != uint(userId) {
+		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
+			Message: "You are not the author of this comment",
+		})
+	}
+
+	var repliesCount int64
+	repository.DB.Model(&models.Comment{}).Where("parent_id = ?", comment.Id).Count(&repliesCount)
+
+	if repliesCount > 0 {
+		comment.IsDeleted = true
+		comment.Content = ""
+		if err := repository.DB.Save(&comment).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+				Message: "Failed to mark comment as deleted",
+			})
+		}
+		return c.JSON(MessageResponse{
+			Message: "Comment marked as deleted",
+		})
+	}
+
+	if err := repository.DB.Delete(&comment).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to delete comment",
+		})
+	}
+
+	return c.JSON(MessageResponse{
+		Message: "Comment deleted successfully",
+	})
+}
+
+// GetChildComments получает вложенные комментарии по parentId
+// @Summary      Получение ответов на комментарий
+// @Description  Возвращает дочерние комментарии по parentId
+// @Tags         Comment
+// @Accept       json
+// @Produce      json
+// @Param        parentId  path  int true "Id родительского комментария"
+// @Success      200  {array}  DataResponse[[]models.Comment]
+// @Failure      400  {object}  ErrorResponse
+// @Router       /api/getReplies [get]
+func GetChildComments(c *fiber.Ctx) error {
+	parentId, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil || parentId == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Message: "Invalid parent id",
+		})
+	}
+
+	var replies []models.Comment
+	if err := repository.DB.
+		Where("parent_id = ?", parentId).
+		Order("created_at ASC").
+		Find(&replies).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to fetch replies",
+		})
+	}
+
+	// Собираем userIds
+	userIds := make([]uint, 0, len(replies))
+	for _, r := range replies {
+		userIds = append(userIds, r.UserId)
+	}
+
+	var users []models.User
+	if len(userIds) > 0 {
+		repository.DB.Where("id IN ?", userIds).Find(&users)
+	}
+
+	userMap := make(map[uint]models.User)
+	for _, u := range users {
+		userMap[u.Id] = u
+	}
+
+	// Получаем количество ответов на каждый комментарий
+	var counts []struct {
+		ParentID uint
+		Count    int
+	}
+	repository.DB.Table("comments").
+		Select("parent_id, COUNT(*) as count").
+		Where("parent_id IN ?", userIds).
+		Group("parent_id").
+		Scan(&counts)
+
+	replyCountMap := make(map[uint]int)
+	for _, c := range counts {
+		replyCountMap[c.ParentID] = c.Count
+	}
+
+	var response []CommentResponse
+	for _, r := range replies {
+		resp := CommentResponse{
+			Id:           r.Id,
+			PostId:       r.PostId,
+			ParentId:     r.ParentId,
+			Content:      r.Content,
+			IsDeleted:    r.IsDeleted,
+			RepliesCount: replyCountMap[r.Id],
+		}
+
+		if user, ok := userMap[r.UserId]; ok {
+			resp.User = struct {
+				Id       uint   `json:"id"`
+				Username string `json:"username"`
+			}{
+				Id:       user.Id,
+				Username: user.Login,
+			}
+		}
+
+		response = append(response, resp)
+	}
+
+	return c.JSON(DataResponse[[]CommentResponse]{Data: response})
 }

@@ -43,6 +43,9 @@ func Setup(app *fiber.App, emailSender mail.EmailSender) {
 	app.Get("/api/getPost/:id", controllers.GetPost)
 	app.Get("/api/getPosts/:channelId", controllers.GetPosts)
 	app.Post("/api/setReaction", controllers.SetReaction)
+	app.Post("/api/createComment", controllers.CreateComment)
+	app.Get("/api/getChildComments/:id", controllers.GetChildComments)
+	app.Delete("/api/deleteComment/:id", controllers.DeleteComment)
 
 	app.Post("/api/uploadFile", controllers.UploadFileHandler)
 	app.Delete("/api/deleteFile", controllers.DeleteFileHandler)
