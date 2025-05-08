@@ -39,10 +39,37 @@ type CommentResponse struct {
 	} `json:"user"`
 }
 
+type StatisticsResponse struct {
+	Current ChannelStatistics `json:"current"`
+	Delta   ChannelStatistics `json:"delta"`
+}
+
+type ChannelStatistics struct {
+	Views    int `json:"views" example:"12"`
+	Likes    int `json:"likes" example:"5"`
+	Dislikes int `json:"dislikes" example:"3"`
+	Posts    int `json:"posts" example:"1"`
+	Comments int `json:"comments" example:"2"`
+}
+
+type CategoryResponse struct {
+	Id    uint   `json:"id" example:"1"`
+	Name  string `json:"name" example:"Личный блог"`
+	Color string `json:"color" example:"#FF9800"`
+}
+
+type TagResponse struct {
+	Id         uint   `json:"id" example:"2"`
+	CategoryId uint   `json:"categoryId" example:"11"`
+	Name       string `json:"name" example:"Мотивация"`
+	Color      string `json:"color" example:"#FF9800"`
+}
+
 type RegisterRequest struct {
 	Login    string `json:"login" example:"johndoe"`
 	Password string `json:"password" example:"secret123"`
 	Email    string `json:"email" example:"user@example.com"`
+	Language string `json:"language" example:"ru"`
 }
 
 type LoginRequest struct {
@@ -86,18 +113,22 @@ type EditChannelRequest struct {
 	CategoryId  *uint  `json:"categoryId" example:"12"`
 }
 
+type LanguageUpdateRequest struct {
+	Language string `json:"language" example:"ru"`
+}
+
 type CreatePostRequest struct {
 	ChannelId uint   `json:"channelId" example:"1"`
 	Title     string `json:"title" example:"Today's news"`
 	Content   string `json:"content" example:"Something here"`
-	Tags      string `json:"tags" example:"Новости, Журналистика, Статьи"`
+	Tags      []uint `json:"tags"`
 }
 
 type EditPostRequest struct {
 	PostId  uint   `json:"postId" example:"1"`
 	Title   string `json:"title" example:"Today's news"`
 	Content string `json:"content" example:"Something here"`
-	Tags    string `json:"tags" example:"Новости, Журналистика, Статьи"`
+	Tags    []uint `json:"tags"`
 }
 
 type SetReactionRequest struct {

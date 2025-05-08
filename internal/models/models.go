@@ -7,6 +7,7 @@ type User struct {
 	Login      string `json:"login"`
 	Email      string `json:"email"`
 	Password   []byte `json:"-"`
+	Language   string `json:"language"`
 	IsVerified bool   `json:"isVerified"`
 }
 
@@ -51,7 +52,6 @@ type Tag struct {
 	Id         uint   `json:"id"`
 	CategoryId uint   `json:"categoryId"`
 	Name       string `json:"name"`
-	Color      string `json:"color"`
 }
 
 type PostTag struct {
@@ -87,6 +87,17 @@ type File struct {
 	UserId   uint   `json:"channelId"`
 	Filename string `json:"title"`
 	MimeType string `json:"MimeType"`
+}
+
+type ChannelStatistics struct {
+	Id        uint `json:"id"`
+	ChannelId uint `json:"ChannelId"`
+	Views     int  `json:"Views"`
+	Likes     int  `json:"Likes"`
+	Dislikes  int  `json:"Dislikes"`
+	Posts     int  `json:"Posts"`
+	Comments  int  `json:"Comments"`
+	Date      time.Time
 }
 
 //type File struct {

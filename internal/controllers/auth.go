@@ -42,6 +42,15 @@ func Register(c *fiber.Ctx) error {
 		})
 	}
 
+	if data.Language == "" {
+		data.Language = "ru"
+	} else if data.Language != "ru" && data.Language != "en" {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(ErrorResponse{
+			Message: "Incorrect language value",
+		})
+	}
+
 	var existingUser models.User
 	if err := repository.DB.Where("login = ?", data.Login).First(&existingUser).Error; err == nil {
 		c.Status(fiber.StatusBadRequest)
@@ -64,9 +73,15 @@ func Register(c *fiber.Ctx) error {
 		Login:    data.Login,
 		Email:    data.Email,
 		Password: password,
+		Language: data.Language,
 	}
 
-	repository.DB.Select("Login", "Email", "Password").Create(&user)
+	if err := repository.DB.Select("Login", "Email", "Password", "Language").Create(&user).Error; err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(ErrorResponse{
+			Message: "Failed to create user",
+		})
+	}
 
 	return c.JSON(MessageResponse{
 		Message: "Successful registration",
@@ -80,7 +95,7 @@ func Register(c *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Param        data  body      LoginRequest true "Логин и пароль"
-// @Success      200   {object}  DataResponse[models.User]
+// @Success      200   {object}  MessageResponse
 // @Failure      400   {object}  ErrorResponse
 // @Failure      404   {object}  ErrorResponse
 // @Router       /api/login [post]
@@ -132,9 +147,30 @@ func Login(c *fiber.Ctx) error {
 
 	c.Cookie(&cookie)
 
-	return c.JSON(DataResponse[string]{
-		Data:    token,
+	return c.JSON(MessageResponse{
 		Message: "Successful authorization",
+	})
+}
+
+// Logout завершает сессию пользователя
+// @Summary      Выход из аккаунта
+// @Description  Удаляет JWT cookie и завершает сессию
+// @Tags         Auth
+// @Produce      json
+// @Success      200  {object}  MessageResponse
+// @Router       /api/logout [post]
+func Logout(c *fiber.Ctx) error {
+	cookie := fiber.Cookie{
+		Name:     "jwt",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+	}
+
+	c.Cookie(&cookie)
+
+	return c.JSON(MessageResponse{
+		Message: "Logged out successfully",
 	})
 }
 
@@ -230,6 +266,7 @@ func EditProfile(c *fiber.Ctx) error {
 // @Success      200   {object}  MessageResponse
 // @Failure      400   {object}  ErrorResponse
 // @Failure      401   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
 // @Router       /api/changePassword [patch]
 func ChangePassword(c *fiber.Ctx) error {
 	var data ChangePasswordRequest
@@ -289,6 +326,73 @@ func ChangePassword(c *fiber.Ctx) error {
 
 	return c.JSON(MessageResponse{
 		Message: "Password changed successfully",
+	})
+}
+
+// LanguageUpdate меняет язык пользователя
+// @Summary      Смена языка интерфейса
+// @Description  Изменение языка интерфейса пользователя
+// @Tags         User
+// @Security     ApiKeyAuth
+// @Accept       json
+// @Produce      json
+// @Param        data  body      LanguageUpdateRequest true "Новый язык интерфейса"
+// @Success      200   {object}  MessageResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Router       /api/languageUpdate [patch]
+func LanguageUpdate(c *fiber.Ctx) error {
+	var data LanguageUpdateRequest
+
+	if err := json.Unmarshal(c.Body(), &data); err != nil {
+		return err
+	}
+
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
+		})
+	}
+
+	claims := token.Claims.(jwt.MapClaims)
+
+	var user models.User
+	if err = repository.DB.Where("id = ?", claims["iss"]).First(&user).Error; err != nil {
+		c.Status(fiber.StatusNotFound)
+		return c.JSON(ErrorResponse{
+			Message: "User not found",
+		})
+	}
+
+	if user.Language == data.Language {
+		return c.JSON(MessageResponse{
+			Message: "Language is already set",
+		})
+	}
+
+	if data.Language != "ru" && data.Language != "en" {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(ErrorResponse{
+			Message: "Incorrect language value",
+		})
+	}
+
+	user.Language = data.Language
+	if err = repository.DB.Save(&user).Error; err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(ErrorResponse{
+			Message: "Failed to update language",
+		})
+	}
+
+	return c.JSON(MessageResponse{
+		Message: "Language updated successfully",
 	})
 }
 

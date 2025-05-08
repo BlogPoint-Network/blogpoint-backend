@@ -9,7 +9,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 	"strconv"
-	"strings"
 )
 
 // CreatePost создает новый пост
@@ -91,20 +90,8 @@ func CreatePost(c *fiber.Ctx) error {
 		})
 	}
 
-	tagNames := strings.Split(strings.TrimSpace(data.Tags), ",")
-	tagSet := make(map[string]bool) // Для фильтрации дублей
-	var tagList []string
-
-	for _, tagName := range tagNames {
-		tagName = strings.TrimSpace(tagName)
-		if tagName != "" && !tagSet[tagName] {
-			tagSet[tagName] = true
-			tagList = append(tagList, tagName)
-		}
-	}
-
-	if len(tagList) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "No valid tags provided"})
+	if len(data.Tags) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "No tag Ids provided"})
 	}
 
 	post := models.Post{
@@ -119,17 +106,12 @@ func CreatePost(c *fiber.Ctx) error {
 		}
 
 		var tags []models.Tag
-		for _, tagName := range tagList {
-			var tag models.Tag
-			if err := tx.Where("name = ?", tagName).First(&tag).Error; err != nil {
-				return fiber.NewError(fiber.StatusBadRequest, "A non-existent tag was provided")
-			}
-			tags = append(tags, tag)
+		if err := tx.Where("id IN ?", data.Tags).Find(&tags).Error; err != nil || len(tags) != len(data.Tags) {
+			return fiber.NewError(fiber.StatusBadRequest, "One or more tag Ids are invalid")
 		}
 
-		// Привязываем теги к посту
 		if err := tx.Model(&post).Association("Tags").Append(tags); err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "Failed to create tags")
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to attach tags to post")
 		}
 
 		return nil
@@ -137,7 +119,7 @@ func CreatePost(c *fiber.Ctx) error {
 
 	if err != nil {
 		return c.JSON(ErrorResponse{
-			Message: "Transaction error",
+			Message: err.Error(),
 		})
 	}
 
@@ -164,7 +146,7 @@ func CreatePost(c *fiber.Ctx) error {
 // @Failure      401   {object}  ErrorResponse
 // @Failure      403   {object}  ErrorResponse
 // @Failure      404   {object}  ErrorResponse
-// @Router       /api/editPost [put]
+// @Router       /api/editPost [patch]
 func EditPost(c *fiber.Ctx) error {
 	var data EditPostRequest
 
@@ -236,37 +218,18 @@ func EditPost(c *fiber.Ctx) error {
 		post.Content = data.Content
 	}
 
-	tagNames := strings.Split(strings.TrimSpace(data.Tags), ",")
-	tagSet := make(map[string]bool) // Для фильтрации дублей
-	var tagList []string
-
-	for _, tagName := range tagNames {
-		tagName = strings.TrimSpace(tagName)
-		if tagName != "" && !tagSet[tagName] {
-			tagSet[tagName] = true
-			tagList = append(tagList, tagName)
-		}
-	}
-
 	// Начинаем транзакцию
 	err = repository.DB.Transaction(func(tx *gorm.DB) error {
-		// Сохраняем изменения в посте
 		if err := tx.Save(&post).Error; err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError, "Failed to update post")
-
 		}
 
-		if len(tagList) != 0 {
+		if len(data.Tags) > 0 {
 			var tags []models.Tag
-			for _, tagName := range tagList {
-				var tag models.Tag
-				if err := tx.Where("name = ?", tagName).First(&tag).Error; err != nil {
-					return fiber.NewError(fiber.StatusBadRequest, "A non-existent tag was provided")
-				}
-				tags = append(tags, tag)
+			if err := tx.Where("id IN ?", data.Tags).Find(&tags).Error; err != nil || len(tags) != len(data.Tags) {
+				return fiber.NewError(fiber.StatusBadRequest, "One or more tag IDs are invalid")
 			}
 
-			// Очищаем старые теги и добавляем новые
 			if err := tx.Model(&post).Association("Tags").Replace(tags); err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to update tags")
 			}
@@ -277,7 +240,7 @@ func EditPost(c *fiber.Ctx) error {
 
 	if err != nil {
 		return c.JSON(ErrorResponse{
-			Message: "Transaction error",
+			Message: err.Error(),
 		})
 	}
 

@@ -10,9 +10,11 @@ func Setup(app *fiber.App, emailSender mail.EmailSender) {
 
 	app.Post("/api/register", controllers.Register)
 	app.Post("/api/login", controllers.Login)
+	app.Post("/api/logout", controllers.Logout)
 	app.Get("/api/user", controllers.User)
 	app.Patch("/api/editProfile", controllers.EditProfile)
 	app.Patch("/api/changePassword", controllers.ChangePassword)
+	app.Patch("/api/languageUpdate", controllers.LanguageUpdate)
 
 	app.Post("/api/requestEmailVerification", func(c *fiber.Ctx) error {
 		return controllers.RequestEmailVerification(c, emailSender)
@@ -36,6 +38,10 @@ func Setup(app *fiber.App, emailSender mail.EmailSender) {
 	app.Get("/api/getPopularChannels", controllers.GetPopularChannels)
 	app.Post("/api/subscribeChannel/:id", controllers.SubscribeChannel)
 	app.Delete("/api/unsubscribeChannel/:id", controllers.UnsubscribeChannel)
+	app.Get("/api/getChannelStatistics/:id", controllers.GetChannelStatistics)
+
+	app.Get("/api/getAllCategories", controllers.GetAllCategories)
+	app.Get("/api/getAllTags", controllers.GetAllTags)
 
 	app.Post("/api/createPost", controllers.CreatePost)
 	app.Patch("/api/editPost", controllers.EditPost)

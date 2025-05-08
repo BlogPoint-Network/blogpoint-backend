@@ -33,6 +33,7 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     login VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
+    language VARCHAR(2) NOT NULL,
     is_verified BOOLEAN DEFAULT FALSE,
     logo_id INT REFERENCES files(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -60,8 +61,7 @@ CREATE TABLE categories (
 CREATE TABLE tags (
     id SERIAL PRIMARY KEY,
     category_id INT REFERENCES categories(id) ON DELETE CASCADE,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    color VARCHAR(7) NOT NULL
+    name VARCHAR(100) UNIQUE NOT NULL
 );
 
 CREATE TABLE channels (
@@ -75,6 +75,16 @@ CREATE TABLE channels (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE channel_statistics (
+    id SERIAL PRIMARY KEY,
+    channel_id INT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    views INT DEFAULT 0,
+    likes INT DEFAULT 0,
+    dislikes INT DEFAULT 0,
+    posts INT DEFAULT 0,
+    comments INT DEFAULT 0,
+    date DATE NOT NULL
+);
 
 CREATE TABLE subscriptions (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,

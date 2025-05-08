@@ -56,6 +56,12 @@
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -475,7 +481,7 @@
             }
         },
         "/api/editPost": {
-            "put": {
+            "patch": {
                 "security": [
                     {
                         "ApiKeyAuth": []
@@ -582,6 +588,58 @@
                 }
             }
         },
+        "/api/getAllCategories": {
+            "get": {
+                "description": "Получение всех доступных категорий",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tags and categories"
+                ],
+                "summary": "Список категорий",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-array_controllers_CategoryResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/getAllTags": {
+            "get": {
+                "description": "Получение всех тегов с цветом соответствующей категории",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tags and categories"
+                ],
+                "summary": "Список тегов",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-array_controllers_TagResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/getChannel/{id}": {
             "get": {
                 "description": "Возвращает информацию о канале по ID",
@@ -625,6 +683,67 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/getChannelStatistics/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Возвращает статистику канала за указанный период",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Channel"
+                ],
+                "summary": "Получить статистику канала",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Id канала",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Период получения статистики (по умолчанию ",
+                        "name": "period",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_StatisticsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -758,6 +877,47 @@
                 }
             }
         },
+        "/api/getReplies": {
+            "get": {
+                "description": "Возвращает дочерние комментарии по parentId",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Comment"
+                ],
+                "summary": "Получение ответов на комментарий",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Id родительского комментария",
+                        "name": "parentId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/controllers.DataResponse-array_models_Comment"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/getUserChannels": {
             "get": {
                 "security": [
@@ -838,6 +998,63 @@
                 }
             }
         },
+        "/api/languageUpdate": {
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Изменение языка интерфейса пользователя",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Смена языка интерфейса",
+                "parameters": [
+                    {
+                        "description": "Новый язык интерфейса",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.LanguageUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/login": {
             "post": {
                 "description": "Авторизация пользователя",
@@ -866,7 +1083,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/controllers.DataResponse-models_User"
+                            "$ref": "#/definitions/controllers.MessageResponse"
                         }
                     },
                     "400": {
@@ -879,6 +1096,26 @@
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "description": "Удаляет JWT cookie и завершает сессию",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Выход из аккаунта",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.MessageResponse"
                         }
                     }
                 }
@@ -1211,7 +1448,7 @@
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "ID канала",
+                        "description": "Id канала",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1378,6 +1615,23 @@
         }
     },
     "definitions": {
+        "controllers.CategoryResponse": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string",
+                    "example": "#FF9800"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Личный блог"
+                }
+            }
+        },
         "controllers.ChangePasswordRequest": {
             "type": "object",
             "properties": {
@@ -1388,6 +1642,31 @@
                 "oldPassword": {
                     "type": "string",
                     "example": "oldSecret123"
+                }
+            }
+        },
+        "controllers.ChannelStatistics": {
+            "type": "object",
+            "properties": {
+                "comments": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "dislikes": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "likes": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "posts": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "views": {
+                    "type": "integer",
+                    "example": 12
                 }
             }
         },
@@ -1429,12 +1708,56 @@
                     "example": "Something here"
                 },
                 "tags": {
-                    "type": "string",
-                    "example": "Новости, Журналистика, Статьи"
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "title": {
                     "type": "string",
                     "example": "Today's news"
+                }
+            }
+        },
+        "controllers.DataResponse-array_controllers_CategoryResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.CategoryResponse"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.DataResponse-array_controllers_TagResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.TagResponse"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.DataResponse-array_models_Comment": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Comment"
+                    }
+                },
+                "message": {
+                    "type": "string"
                 }
             }
         },
@@ -1446,6 +1769,17 @@
                     "items": {
                         "$ref": "#/definitions/models.Post"
                     }
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.DataResponse-controllers_StatisticsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/controllers.StatisticsResponse"
                 },
                 "message": {
                     "type": "string"
@@ -1518,8 +1852,10 @@
                     "example": 1
                 },
                 "tags": {
-                    "type": "string",
-                    "example": "Новости, Журналистика, Статьи"
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "title": {
                     "type": "string",
@@ -1561,11 +1897,20 @@
         "controllers.FileResponse": {
             "type": "object",
             "properties": {
-                "message": {
+                "filename": {
                     "type": "string"
                 },
                 "url": {
                     "type": "string"
+                }
+            }
+        },
+        "controllers.LanguageUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "language": {
+                    "type": "string",
+                    "example": "ru"
                 }
             }
         },
@@ -1596,6 +1941,10 @@
                 "email": {
                     "type": "string",
                     "example": "user@example.com"
+                },
+                "language": {
+                    "type": "string",
+                    "example": "ru"
                 },
                 "login": {
                     "type": "string",
@@ -1630,6 +1979,38 @@
                 "reaction": {
                     "type": "string",
                     "example": "like"
+                }
+            }
+        },
+        "controllers.StatisticsResponse": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "$ref": "#/definitions/controllers.ChannelStatistics"
+                },
+                "delta": {
+                    "$ref": "#/definitions/controllers.ChannelStatistics"
+                }
+            }
+        },
+        "controllers.TagResponse": {
+            "type": "object",
+            "properties": {
+                "categoryId": {
+                    "type": "integer",
+                    "example": 11
+                },
+                "color": {
+                    "type": "string",
+                    "example": "#FF9800"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Мотивация"
                 }
             }
         },
@@ -1673,6 +2054,38 @@
                 }
             }
         },
+        "models.Comment": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isDeleted": {
+                    "type": "boolean"
+                },
+                "parentId": {
+                    "type": "integer"
+                },
+                "postId": {
+                    "type": "integer"
+                },
+                "replies": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Comment"
+                    }
+                },
+                "userId": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.Post": {
             "type": "object",
             "properties": {
@@ -1680,6 +2093,9 @@
                     "type": "integer"
                 },
                 "content": {
+                    "type": "string"
+                },
+                "createdAt": {
                     "type": "string"
                 },
                 "dislikesCount": {
@@ -1711,9 +2127,6 @@
                 "categoryId": {
                     "type": "integer"
                 },
-                "color": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "integer"
                 },
@@ -1733,6 +2146,9 @@
                 },
                 "isVerified": {
                     "type": "boolean"
+                },
+                "language": {
+                    "type": "string"
                 },
                 "login": {
                     "type": "string"

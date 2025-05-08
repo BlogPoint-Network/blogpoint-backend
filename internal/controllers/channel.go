@@ -9,6 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 	"strconv"
+	"time"
 )
 
 // CreateChannel создает новый канал
@@ -520,7 +521,7 @@ func SubscribeChannel(c *fiber.Ctx) error {
 // @Security     ApiKeyAuth
 // @Accept       json
 // @Produce      json
-// @Param        id    path      int true "ID канала"
+// @Param        id    path      int true "Id канала"
 // @Success      200   {object}  MessageResponse
 // @Failure      400   {object}  ErrorResponse
 // @Failure      401   {object}  ErrorResponse
@@ -584,5 +585,171 @@ func UnsubscribeChannel(c *fiber.Ctx) error {
 
 	return c.JSON(MessageResponse{
 		Message: "Unsubscribed successfully",
+	})
+}
+
+// GetChannelStatistics возвращает статистику канала
+// @Summary      Получить статистику канала
+// @Description  Возвращает статистику канала за указанный период
+// @Tags         Channel
+// @Security     ApiKeyAuth
+// @Accept       json
+// @Produce      json
+// @Param        id       path      int true "Id канала"
+// @Param        period   query     int false "Период получения статистики (по умолчанию "day")"
+// @Success      200      {object}  DataResponse[StatisticsResponse]
+// @Failure      400      {object}  ErrorResponse
+// @Failure      401      {object}  ErrorResponse
+// @Failure      404      {object}  ErrorResponse
+// @Router       /api/getChannelStatistics/{id} [Get]
+func GetChannelStatistics(c *fiber.Ctx) error {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
+		})
+	}
+
+	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
+	if !ok {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
+		})
+	}
+
+	userId, err := strconv.ParseUint(strId, 10, 32)
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid user Id",
+		})
+	}
+
+	channelId, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil || channelId == 0 {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid channel id",
+		})
+	}
+
+	var channel models.Channel
+	if result := repository.DB.First(&channel, channelId); result.Error != nil {
+		c.Status(fiber.StatusNotFound)
+		return c.JSON(ErrorResponse{
+			Message: "Channel not found",
+		})
+	}
+
+	if channel.OwnerId != uint(userId) {
+		c.Status(fiber.StatusForbidden)
+		return c.JSON(ErrorResponse{
+			Message: "You are not the owner of this channel",
+		})
+	}
+
+	today := time.Now().Truncate(24 * time.Hour)
+
+	period := c.Query("period", "day")
+
+	var startDate time.Time
+	switch period {
+	case "day":
+		startDate = today.AddDate(0, 0, -1)
+	case "week":
+		startDate = today.AddDate(0, 0, -7)
+	case "month":
+		startDate = today.AddDate(0, -1, 0)
+	case "year":
+		startDate = today.AddDate(-1, 0, 0)
+	default:
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Message: "Invalid period value",
+		})
+	}
+
+	var current models.ChannelStatistics
+	if err = repository.DB.Where("channel_id = ? AND date = ?", channelId, today).First(&current).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to get current statistics",
+		})
+	}
+
+	var previous models.ChannelStatistics
+	repository.DB.Where("channel_id = ? AND date = ?", channelId, startDate).First(&previous)
+
+	currentResponse := ChannelStatistics{
+		Views:    current.Views,
+		Likes:    current.Likes,
+		Dislikes: current.Dislikes,
+		Posts:    current.Posts,
+		Comments: current.Comments,
+	}
+
+	delta := ChannelStatistics{
+		Views:    current.Views - previous.Views,
+		Likes:    current.Likes - previous.Likes,
+		Dislikes: current.Dislikes - previous.Dislikes,
+		Posts:    current.Posts - previous.Posts,
+		Comments: current.Comments - previous.Comments,
+	}
+
+	response := StatisticsResponse{
+		Current: currentResponse,
+		Delta:   delta,
+	}
+
+	return c.JSON(DataResponse[StatisticsResponse]{
+		Data: response,
+	})
+}
+
+// GetAllCategories возвращает список всех категорий
+// @Summary      Список категорий
+// @Description  Получение всех доступных категорий
+// @Tags         Tags and categories
+// @Produce      json
+// @Success      200  {object}  DataResponse[[]CategoryResponse]
+// @Failure      500  {object}  ErrorResponse
+// @Router       /api/getAllCategories [get]
+func GetAllCategories(c *fiber.Ctx) error {
+	var categories []CategoryResponse
+
+	if err := repository.DB.Table("categories").Find(&categories).Error; err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(ErrorResponse{Message: "Failed to fetch categories"})
+	}
+
+	return c.JSON(DataResponse[[]CategoryResponse]{
+		Data:    categories,
+		Message: "Categories fetched successfully",
+	})
+}
+
+// GetAllTags возвращает список всех тегов с цветом категории
+// @Summary      Список тегов
+// @Description  Получение всех тегов с цветом соответствующей категории
+// @Tags         Tags and categories
+// @Produce      json
+// @Success      200  {object}  DataResponse[[]TagResponse]
+// @Failure      500  {object}  ErrorResponse
+// @Router       /api/getAllTags [get]
+func GetAllTags(c *fiber.Ctx) error {
+	var tags []TagResponse
+
+	if err := repository.DB.Table("tags").Select("tags.id, tags.category_id, tags.name, categories.color").
+		Joins("LEFT JOIN categories ON tags.category_id = categories.id").Scan(&tags).Error; err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(ErrorResponse{Message: "Failed to fetch tags"})
+	}
+
+	return c.JSON(DataResponse[[]TagResponse]{
+		Data:    tags,
+		Message: "Tags fetched successfully",
 	})
 }

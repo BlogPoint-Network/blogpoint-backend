@@ -41,6 +41,7 @@ func main() {
 	routes.Setup(app, emailSender)
 
 	utils.StartCleanupTask()
+	utils.StartStatisticsTask()
 
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
