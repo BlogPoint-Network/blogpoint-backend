@@ -9,6 +9,7 @@ type User struct {
 	Password   []byte `json:"-"`
 	Language   string `json:"language"`
 	IsVerified bool   `json:"isVerified"`
+	LogoId     *uint  `json:"logoId"`
 }
 
 type VerificationCode struct {
@@ -33,11 +34,14 @@ type Channel struct {
 type Post struct {
 	Id            uint      `json:"id"`
 	ChannelId     uint      `json:"channelId"`
+	PreviewImage  uint      `json:"previewImage"`
 	Title         string    `json:"title"`
 	Content       string    `json:"content"`
 	LikesCount    uint      `json:"likesCount"`
 	DislikesCount uint      `json:"dislikesCount"`
 	ViewsCount    uint      `json:"viewsCount"`
+	PostImages    []File    `gorm:"many2many:post_images;" json:"postImages"`
+	PostFiles     []File    `gorm:"many2many:post_files;" json:"postFiles"`
 	Tags          []Tag     `gorm:"many2many:post_tags;" json:"tags"`
 	CreatedAt     time.Time `json:"createdAt"`
 }
@@ -84,9 +88,9 @@ type Subscription struct {
 
 type File struct {
 	Id       uint   `json:"id"`
-	UserId   uint   `json:"channelId"`
-	Filename string `json:"title"`
-	MimeType string `json:"MimeType"`
+	OwnerId  uint   `json:"ownerId"`
+	Filename string `json:"filename"`
+	MimeType string `json:"mimeType"`
 }
 
 type ChannelStatistics struct {
@@ -99,14 +103,3 @@ type ChannelStatistics struct {
 	Comments  int  `json:"Comments"`
 	Date      time.Time
 }
-
-//type File struct {
-//	Id       uint   `json:"id"`
-//	OwnerId  uint   `json:"channelId"`
-//	Filename string `json:"title"`
-//	Url      string `json:"url"`
-//	MimeType string `json:"MimeType"`
-//	UsedIn   string `json:"usedIn"`
-//	EntityId uint   `json:"entityId"`
-//	Name     string `json:"name"`
-//}

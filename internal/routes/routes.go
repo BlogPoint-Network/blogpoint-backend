@@ -15,6 +15,8 @@ func Setup(app *fiber.App, emailSender mail.EmailSender) {
 	app.Patch("/api/editProfile", controllers.EditProfile)
 	app.Patch("/api/changePassword", controllers.ChangePassword)
 	app.Patch("/api/languageUpdate", controllers.LanguageUpdate)
+	app.Post("/api/uploadUserLogo", controllers.UploadUserLogo)
+	app.Delete("/api/deleteUserLogo", controllers.DeleteUserLogo)
 
 	app.Post("/api/requestEmailVerification", func(c *fiber.Ctx) error {
 		return controllers.RequestEmailVerification(c, emailSender)
@@ -39,6 +41,8 @@ func Setup(app *fiber.App, emailSender mail.EmailSender) {
 	app.Post("/api/subscribeChannel/:id", controllers.SubscribeChannel)
 	app.Delete("/api/unsubscribeChannel/:id", controllers.UnsubscribeChannel)
 	app.Get("/api/getChannelStatistics/:id", controllers.GetChannelStatistics)
+	app.Post("/api/uploadChannelLogo/:id", controllers.UploadChannelLogo)
+	app.Delete("/api/deleteChannelLogo/:id", controllers.DeleteChannelLogo)
 
 	app.Get("/api/getAllCategories", controllers.GetAllCategories)
 	app.Get("/api/getAllTags", controllers.GetAllTags)
@@ -49,10 +53,11 @@ func Setup(app *fiber.App, emailSender mail.EmailSender) {
 	app.Get("/api/getPost/:id", controllers.GetPost)
 	app.Get("/api/getPosts/:channelId", controllers.GetPosts)
 	app.Post("/api/setReaction", controllers.SetReaction)
+
 	app.Post("/api/createComment", controllers.CreateComment)
 	app.Get("/api/getChildComments/:id", controllers.GetChildComments)
 	app.Delete("/api/deleteComment/:id", controllers.DeleteComment)
 
-	app.Post("/api/uploadFile", controllers.UploadFileHandler)
-	app.Delete("/api/deleteFile", controllers.DeleteFileHandler)
+	app.Post("/api/uploadFile", controllers.UploadFile)
+	app.Delete("/api/deleteFile/:id", controllers.DeleteFile)
 }

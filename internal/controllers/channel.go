@@ -3,6 +3,7 @@ package controllers
 import (
 	"blogpoint-backend/internal/models"
 	"blogpoint-backend/internal/repository"
+	"blogpoint-backend/internal/storage"
 	"encoding/json"
 	"errors"
 	"github.com/gofiber/fiber/v2"
@@ -51,13 +52,11 @@ func CreateChannel(c *fiber.Ctx) error {
 		})
 	}
 
-	var uintId uint
-	if parsedId, err := strconv.ParseUint(strId, 10, 32); err == nil {
-		uintId = uint(parsedId)
-	} else {
+	userId, err := strconv.ParseUint(strId, 10, 32)
+	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
 		return c.JSON(ErrorResponse{
-			Message: "Invalid issuer Id",
+			Message: "Invalid user Id",
 		})
 	}
 
@@ -82,7 +81,7 @@ func CreateChannel(c *fiber.Ctx) error {
 		Name:        data.Name,
 		Description: data.Description,
 		CategoryId:  data.CategoryId,
-		OwnerId:     uintId,
+		OwnerId:     uint(userId),
 	}
 	repository.DB.Create(&channel)
 	repository.DB.Preload("Category").First(&channel, channel.Id)
@@ -199,6 +198,246 @@ func EditChannel(c *fiber.Ctx) error {
 		Message: "Channel edited successfully",
 	})
 }
+
+// UploadChannelLogo загружает логотип канала
+// @Summary      Загрузка логотипа канала
+// @Description  Загружает изображение и устанавливает его как логотип канала
+// @Tags         Channel
+// @Security     ApiKeyAuth
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        id    path      int true "Id канала"
+// @Param        file  formData  file true "Файл изображения"
+// @Success      200   {object}  DataResponse[FileResponse]
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Router       /api/uploadChannelLogo/{id} [post]
+func UploadChannelLogo(c *fiber.Ctx) error {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
+		})
+	}
+
+	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
+	if !ok {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
+		})
+	}
+
+	userId, err := strconv.ParseUint(strId, 10, 32)
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid user Id",
+		})
+	}
+
+	var user models.User
+	if err = repository.DB.First(&user, userId).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Message: "User not found"})
+	}
+
+	// Получаем id канала из path
+	channelId, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Message: "Invalid channel Id"})
+	}
+
+	var channel models.Channel
+	if err = repository.DB.First(&channel, channelId).Error; err != nil {
+		c.Status(fiber.StatusNotFound)
+		return c.JSON(ErrorResponse{
+			Message: "Channel not found",
+		})
+	}
+
+	if channel.OwnerId != uint(userId) {
+		c.Status(fiber.StatusForbidden)
+		return c.JSON(ErrorResponse{
+			Message: "You are not the owner of this channel",
+		})
+	}
+
+	var oldLogoId uint
+	if channel.LogoId != nil {
+		oldLogoId = *channel.LogoId
+	}
+
+	filename, mimeType, err := ProcessUpload(c, "image")
+	if err != nil {
+		return c.Status(err.(*fiber.Error).Code).JSON(ErrorResponse{
+			Message: err.(*fiber.Error).Error(),
+		})
+	}
+
+	file := models.File{
+		OwnerId:  uint(userId),
+		Filename: filename,
+		MimeType: mimeType,
+	}
+
+	if err = repository.DB.Create(&file).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Message: "Error saving file to DB"})
+	}
+
+	if err = repository.DB.Model(&channel).Update("logo_id", file.Id).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Message: "Error saving logo id"})
+	}
+
+	if oldLogoId != 0 {
+		var oldFile models.File
+		if err = repository.DB.First(&oldFile, "id = ?", oldLogoId).Error; err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Message: "File not found",
+			})
+		}
+
+		if err = storage.DeleteFromMinIO(c.Context(), oldFile.Filename); err != nil {
+			return c.Status(err.(*fiber.Error).Code).JSON(ErrorResponse{
+				Message: err.(*fiber.Error).Error(),
+			})
+		}
+
+		if err = repository.DB.Delete(&oldFile).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+				Message: "Error deleting file from database",
+			})
+		}
+	}
+
+	url := storage.GetUrl(filename)
+
+	fileResponse := FileResponse{
+		Id:  file.Id,
+		Url: url,
+	}
+
+	return c.JSON(DataResponse[FileResponse]{
+		Data:    fileResponse,
+		Message: "Channel logo uploaded successfully",
+	})
+}
+
+// DeleteChannelLogo удаляет логотип канала
+// @Summary      Удаление логотипа канала
+// @Description  Удаляет текущий логотип канала и очищает поле logo_id
+// @Tags         Channel
+// @Security     ApiKeyAuth
+// @Produce      json
+// @Param        id   path      int true "Id канала"
+// @Success      200  {object}  MessageResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      401  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /api/deleteChannelLogo/{id} [delete]
+func DeleteChannelLogo(c *fiber.Ctx) error {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
+		})
+	}
+
+	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
+	if !ok {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
+		})
+	}
+
+	userId, err := strconv.ParseUint(strId, 10, 32)
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid user Id",
+		})
+	}
+
+	var user models.User
+	if err = repository.DB.First(&user, "id = ?", userId).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+			Message: "User not found",
+		})
+	}
+
+	channelId, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Message: "Invalid channel Id"})
+	}
+
+	var channel models.Channel
+	if err = repository.DB.First(&channel, channelId).Error; err != nil {
+		c.Status(fiber.StatusNotFound)
+		return c.JSON(ErrorResponse{
+			Message: "Channel not found",
+		})
+	}
+
+	if channel.OwnerId != uint(userId) {
+		c.Status(fiber.StatusForbidden)
+		return c.JSON(ErrorResponse{
+			Message: "You are not the owner of this channel",
+		})
+	}
+
+	if channel.LogoId == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Message: "No logo to delete",
+		})
+	}
+
+	var file models.File
+	if err = repository.DB.First(&file, "id = ?", channel.LogoId).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+			Message: "File not found",
+		})
+	}
+
+	if err = storage.DeleteFromMinIO(c.Context(), file.Filename); err != nil {
+		return c.Status(err.(*fiber.Error).Code).JSON(ErrorResponse{
+			Message: err.(*fiber.Error).Error(),
+		})
+	}
+
+	if err = repository.DB.Delete(&file).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Error deleting file from database",
+		})
+	}
+
+	if err = repository.DB.Model(&channel).Update("logo_id", nil).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Error clearing channel logo",
+		})
+	}
+
+	return c.JSON(MessageResponse{
+		Message: "Channel logo deleted successfully",
+	})
+}
+
+//
+//
+//
+//
+//
+//
+//
+//
 
 // DeleteChannel удаляет канал
 // @Summary      Удаление канала

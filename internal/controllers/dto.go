@@ -12,8 +12,8 @@ type MessageResponse struct {
 }
 
 type FileResponse struct {
-	Filename string `json:"filename"`
-	Url      string `json:"url"`
+	Id  uint   `json:"id"`
+	Url string `json:"url"`
 }
 
 type ErrorResponse struct {
@@ -118,10 +118,12 @@ type LanguageUpdateRequest struct {
 }
 
 type CreatePostRequest struct {
-	ChannelId uint   `json:"channelId" example:"1"`
-	Title     string `json:"title" example:"Today's news"`
-	Content   string `json:"content" example:"Something here"`
-	Tags      []uint `json:"tags"`
+	ChannelId  uint   `json:"channelId" example:"1"`
+	Title      string `json:"title" example:"Today's news"`
+	Content    string `json:"content" example:"Something here"`
+	Tags       []uint `json:"tags"`
+	PostImages []uint `json:"postImages"`
+	PostFiles  []uint `json:"postFiles"`
 }
 
 type EditPostRequest struct {

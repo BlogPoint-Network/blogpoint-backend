@@ -10,22 +10,10 @@ INSERT INTO roles (name, description) VALUES
 
 CREATE TABLE files (
     id SERIAL PRIMARY KEY,
-    filename varchar(200) UNIQUE NOT NULL,
+    filename varchar(100) UNIQUE NOT NULL,
     mime_type varchar(30) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- CREATE TABLE files (
---     id SERIAL PRIMARY KEY,
---     owner_id INT NOT NULL,
---     filename varchar(200) UNIQUE NOT NULL,
---     url VARCHAR(200) NOT NULL,
---     mime_type varchar(30) NOT NULL,
---     used_in VARCHAR(20) NOT NULL CHECK (used_in IN ('user_avatar', 'channel_avatar', 'post_preview', 'post_content', 'post_media')),
---     entity_id INT NOT NULL,
---     name VARCHAR(100) DEFAULT NULL,
---     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
--- );
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -39,8 +27,8 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE files ADD COLUMN user_id INT;
-ALTER TABLE files ADD CONSTRAINT fk_files_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE files ADD COLUMN owner_id INT;
+ALTER TABLE files ADD CONSTRAINT fk_files_user FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE;
 
 CREATE TABLE verification_codes (
     id SERIAL PRIMARY KEY,
@@ -103,12 +91,25 @@ CREATE TABLE channel_moderators (
 CREATE TABLE posts (
     id SERIAL PRIMARY KEY,
     channel_id INT REFERENCES channels(id) ON DELETE CASCADE,
+    preview_image INT REFERENCES files(id) ON DELETE SET NULL,
     title VARCHAR(200) NOT NULL,
     content TEXT NOT NULL,
     likes_count INT DEFAULT 0,
     dislikes_count INT DEFAULT 0,
     views_count INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE post_images (
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
+    file_id INT REFERENCES files(id) ON DELETE CASCADE,
+    PRIMARY KEY (post_id, file_id)
+);
+
+CREATE TABLE post_files (
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
+    file_id INT REFERENCES files(id) ON DELETE CASCADE,
+    PRIMARY KEY (post_id, file_id)
 );
 
 CREATE TABLE post_tags (

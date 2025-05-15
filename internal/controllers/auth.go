@@ -4,6 +4,7 @@ import (
 	"blogpoint-backend/internal/mail"
 	"blogpoint-backend/internal/models"
 	"blogpoint-backend/internal/repository"
+	"blogpoint-backend/internal/storage"
 	"encoding/json"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
@@ -393,6 +394,196 @@ func LanguageUpdate(c *fiber.Ctx) error {
 
 	return c.JSON(MessageResponse{
 		Message: "Language updated successfully",
+	})
+}
+
+// UploadUserLogo загружает новое лого пользователя.
+// @Summary      Загрузка лого пользователя
+// @Description  Загружает изображение и устанавливает его как лого текущего авторизованного пользователя.
+// @Tags         User
+// @Security     ApiKeyAuth
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        file  formData  file true "Файл изображения"
+// @Success      200   {object}  DataResponse[FileResponse]
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Router       /api/uploadUserLogo [post]
+func UploadUserLogo(c *fiber.Ctx) error {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
+		})
+	}
+
+	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
+	if !ok {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
+		})
+	}
+
+	userId, err := strconv.ParseUint(strId, 10, 32)
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid user Id",
+		})
+	}
+
+	var user models.User
+	if err = repository.DB.First(&user, userId).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Message: "User not found"})
+	}
+
+	var oldLogoId uint
+	if user.LogoId != nil {
+		oldLogoId = *user.LogoId
+	}
+
+	filename, mimeType, err := ProcessUpload(c, "image")
+
+	if err != nil {
+		return c.Status(err.(*fiber.Error).Code).JSON(ErrorResponse{
+			Message: err.(*fiber.Error).Error(),
+		})
+	}
+
+	file := models.File{
+		OwnerId:  uint(userId),
+		Filename: filename,
+		MimeType: mimeType,
+	}
+
+	if err = repository.DB.Create(&file).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Message: "Error saving file to DB"})
+	}
+
+	if err = repository.DB.Model(&user).Update("logo_id", file.Id).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Message: "Error saving logo id"})
+	}
+
+	if oldLogoId != 0 {
+		var oldFile models.File
+		if err = repository.DB.First(&oldFile, "id = ?", oldLogoId).Error; err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Message: "File not found",
+			})
+		}
+
+		if err = storage.DeleteFromMinIO(c.Context(), oldFile.Filename); err != nil {
+			return c.Status(err.(*fiber.Error).Code).JSON(ErrorResponse{
+				Message: err.(*fiber.Error).Error(),
+			})
+		}
+
+		if err = repository.DB.Delete(&oldFile).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+				Message: "Error deleting file from database",
+			})
+		}
+	}
+
+	url := storage.GetUrl(filename)
+
+	fileResponse := FileResponse{
+		Id:  file.Id,
+		Url: url,
+	}
+
+	return c.JSON(DataResponse[FileResponse]{
+		Data:    fileResponse,
+		Message: "User logo uploaded successfully",
+	})
+}
+
+// DeleteUserLogo удаляет лого пользователя
+// @Summary      Удаление лого пользователя
+// @Description  Удаляет текущее лого пользователя и очищает поле logo_id
+// @Tags         User
+// @Security     ApiKeyAuth
+// @Accept       multipart/form-data
+// @Produce      json
+// @Success      200 {object} MessageResponse
+// @Failure      400 {object} ErrorResponse
+// @Failure      401 {object} ErrorResponse
+// @Failure      500 {object} ErrorResponse
+// @Router       /api/deleteUserLogo [delete]
+func DeleteUserLogo(c *fiber.Ctx) error {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
+		})
+	}
+
+	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
+	if !ok {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
+		})
+	}
+
+	userId, err := strconv.ParseUint(strId, 10, 32)
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid user Id",
+		})
+	}
+
+	var user models.User
+	if err = repository.DB.First(&user, "id = ?", userId).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+			Message: "User not found",
+		})
+	}
+
+	if user.LogoId == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Message: "No logo to delete",
+		})
+	}
+
+	var file models.File
+	if err = repository.DB.First(&file, "id = ?", user.LogoId).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+			Message: "File not found",
+		})
+	}
+
+	if err = storage.DeleteFromMinIO(c.Context(), file.Filename); err != nil {
+		return c.Status(err.(*fiber.Error).Code).JSON(ErrorResponse{
+			Message: err.(*fiber.Error).Error(),
+		})
+	}
+
+	if err = repository.DB.Delete(&file).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Error deleting file from database",
+		})
+	}
+
+	if err = repository.DB.Model(&user).Update("logo_id", nil).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Error clearing user logo",
+		})
+	}
+
+	return c.JSON(MessageResponse{
+		Message: "User logo deleted successfully",
 	})
 }
 

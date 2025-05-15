@@ -57,6 +57,18 @@ definitions:
         example: BlogPoint News
         type: string
     type: object
+  controllers.CreateCommentRequest:
+    properties:
+      content:
+        example: "1"
+        type: string
+      parentId:
+        example: 1
+        type: integer
+      postId:
+        example: 1
+        type: integer
+    type: object
   controllers.CreatePostRequest:
     properties:
       channelId:
@@ -65,6 +77,14 @@ definitions:
       content:
         example: Something here
         type: string
+      postFiles:
+        items:
+          type: integer
+        type: array
+      postImages:
+        items:
+          type: integer
+        type: array
       tags:
         items:
           type: integer
@@ -109,6 +129,13 @@ definitions:
       message:
         type: string
     type: object
+  controllers.DataResponse-controllers_FileResponse:
+    properties:
+      data:
+        $ref: '#/definitions/controllers.FileResponse'
+      message:
+        type: string
+    type: object
   controllers.DataResponse-controllers_StatisticsResponse:
     properties:
       data:
@@ -120,6 +147,13 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/models.Channel'
+      message:
+        type: string
+    type: object
+  controllers.DataResponse-models_Comment:
+    properties:
+      data:
+        $ref: '#/definitions/models.Comment'
       message:
         type: string
     type: object
@@ -191,8 +225,8 @@ definitions:
     type: object
   controllers.FileResponse:
     properties:
-      filename:
-        type: string
+      id:
+        type: integer
       url:
         type: string
     type: object
@@ -318,6 +352,17 @@ definitions:
       userId:
         type: integer
     type: object
+  models.File:
+    properties:
+      filename:
+        type: string
+      id:
+        type: integer
+      mimeType:
+        type: string
+      ownerId:
+        type: integer
+    type: object
   models.Post:
     properties:
       channelId:
@@ -331,6 +376,16 @@ definitions:
       id:
         type: integer
       likesCount:
+        type: integer
+      postFiles:
+        items:
+          $ref: '#/definitions/models.File'
+        type: array
+      postImages:
+        items:
+          $ref: '#/definitions/models.File'
+        type: array
+      previewImage:
         type: integer
       tags:
         items:
@@ -362,6 +417,8 @@ definitions:
         type: string
       login:
         type: string
+      logoId:
+        type: integer
     type: object
 host: localhost:8000
 info:
@@ -438,6 +495,46 @@ paths:
       summary: Создание канал
       tags:
       - Channel
+  /api/createComment:
+    post:
+      consumes:
+      - application/json
+      description: Создает новый комментарий к посту или ответ на существующий комментарий
+      parameters:
+      - description: Данные комментария
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.CreateCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-models_Comment'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Создание комментария
+      tags:
+      - Comment
   /api/createPost:
     post:
       consumes:
@@ -451,6 +548,10 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/controllers.CreatePostRequest'
+      - description: Файл изображения
+        in: formData
+        name: file
+        type: file
       produces:
       - application/json
       responses:
@@ -526,15 +627,15 @@ paths:
       summary: Удаление канала
       tags:
       - Channel
-  /api/deleteFile:
+  /api/deleteChannelLogo/{id}:
     delete:
-      description: Удаляет файл по имени
+      description: Удаляет текущий логотип канала и очищает поле logo_id
       parameters:
-      - description: Имя файла для удаления
-        in: query
-        name: filename
+      - description: Id канала
+        in: path
+        name: id
         required: true
-        type: string
+        type: integer
       produces:
       - application/json
       responses:
@@ -544,6 +645,93 @@ paths:
             $ref: '#/definitions/controllers.MessageResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Удаление логотипа канала
+      tags:
+      - Channel
+  /api/deleteComment/{id}:
+    delete:
+      description: Удаляет комментарий, если нет ответов — полностью, иначе помечает
+        как удаленный
+      parameters:
+      - description: Id комментария
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Удаление комментария
+      tags:
+      - Comment
+  /api/deleteFile/{id}:
+    delete:
+      description: Удаляет файл по id
+      parameters:
+      - description: Id файла для удаления
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
         "500":
@@ -624,6 +812,35 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Удаление аккаунта
+      tags:
+      - User
+  /api/deleteUserLogo:
+    delete:
+      consumes:
+      - multipart/form-data
+      description: Удаляет текущее лого пользователя и очищает поле logo_id
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Удаление лого пользователя
       tags:
       - User
   /api/editChannel:
@@ -845,6 +1062,35 @@ paths:
       summary: Получить статистику канала
       tags:
       - Channel
+  /api/getChildComments/{id}:
+    get:
+      description: Получает ответы на комментарий (дочерние комментарии) по parentId
+      parameters:
+      - description: Id родительского комментария
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controllers.DataResponse-array_models_Comment'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Получение ответов на комментарий
+      tags:
+      - Comment
   /api/getPopularChannels:
     get:
       description: Возвращает список каналов, отсортированных по количеству подписчиков
@@ -929,33 +1175,6 @@ paths:
       summary: Get posts
       tags:
       - Post
-  /api/getReplies:
-    get:
-      consumes:
-      - application/json
-      description: Возвращает дочерние комментарии по parentId
-      parameters:
-      - description: Id родительского комментария
-        in: path
-        name: parentId
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/controllers.DataResponse-array_models_Comment'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/controllers.ErrorResponse'
-      summary: Получение ответов на комментарий
-      tags:
-      - Comment
   /api/getUserChannels:
     get:
       description: Возвращает список каналов, созданных текущим пользователем
@@ -1316,6 +1535,46 @@ paths:
       summary: Отписаться от канала
       tags:
       - Channel
+  /api/uploadChannelLogo/{id}:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Загружает изображение и устанавливает его как логотип канала
+      parameters:
+      - description: Id канала
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Файл изображения
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-controllers_FileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Загрузка логотипа канала
+      tags:
+      - Channel
   /api/uploadFile:
     post:
       consumes:
@@ -1347,6 +1606,42 @@ paths:
       summary: Загрузка файла
       tags:
       - File
+  /api/uploadUserLogo:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Загружает изображение и устанавливает его как лого текущего авторизованного
+        пользователя.
+      parameters:
+      - description: Файл изображения
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-controllers_FileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Загрузка лого пользователя
+      tags:
+      - User
   /api/user:
     get:
       description: Получение данных авторизованного пользователя

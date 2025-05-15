@@ -19,6 +19,7 @@ import (
 // @Accept       json
 // @Produce      json
 // @Param        data  body      CreatePostRequest true "Данные поста (channelId, title, content, tags)"
+// @Param        file  formData  file false "Файл изображения"
 // @Success      200   {object}  DataResponse[models.Post]
 // @Failure      400   {object}  ErrorResponse
 // @Failure      401   {object}  ErrorResponse
@@ -52,7 +53,7 @@ func CreatePost(c *fiber.Ctx) error {
 		})
 	}
 
-	uintId, err := strconv.ParseUint(strId, 10, 32)
+	userId, err := strconv.ParseUint(strId, 10, 32)
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
 		return c.JSON(ErrorResponse{
@@ -75,7 +76,7 @@ func CreatePost(c *fiber.Ctx) error {
 		})
 	}
 
-	if channel.OwnerId != uint(uintId) {
+	if channel.OwnerId != uint(userId) {
 		c.Status(fiber.StatusForbidden)
 		return c.JSON(ErrorResponse{
 			Message: "You are not the owner of this channel",
@@ -100,6 +101,27 @@ func CreatePost(c *fiber.Ctx) error {
 		Content:   data.Content,
 	}
 
+	filename, mimeType, err := ProcessUpload(c, "image")
+	if err != nil {
+		return c.Status(err.(*fiber.Error).Code).JSON(ErrorResponse{
+			Message: err.(*fiber.Error).Error(),
+		})
+	}
+
+	file := models.File{
+		OwnerId:  uint(userId),
+		Filename: filename,
+		MimeType: mimeType,
+	}
+
+	if err = repository.DB.Create(&file).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Message: "Error saving file to DB"})
+	}
+
+	if err = repository.DB.Model(&post).Update("preview_image", file.Id).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Message: "Error saving preview image id"})
+	}
+
 	err = repository.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&post).Error; err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError, "Failed to create post")
@@ -114,12 +136,32 @@ func CreatePost(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusInternalServerError, "Failed to attach tags to post")
 		}
 
+		var postImages []models.File
+		if len(data.PostImages) > 0 {
+			if err := tx.Where("id IN ?", data.PostImages).Find(&postImages).Error; err != nil || len(postImages) != len(data.PostImages) {
+				return fiber.NewError(fiber.StatusBadRequest, "One or more post image Ids are invalid")
+			}
+			if err := tx.Model(&post).Association("PostImages").Append(postImages); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "Failed to attach post images")
+			}
+		}
+
+		var postFiles []models.File
+		if len(data.PostFiles) > 0 {
+			if err := tx.Where("id IN ?", data.PostFiles).Find(&postFiles).Error; err != nil || len(postFiles) != len(data.PostFiles) {
+				return fiber.NewError(fiber.StatusBadRequest, "One or more post file Ids are invalid")
+			}
+			if err := tx.Model(&post).Association("PostFiles").Append(postFiles); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "Failed to attach post files")
+			}
+		}
+
 		return nil
 	})
 
 	if err != nil {
-		return c.JSON(ErrorResponse{
-			Message: err.Error(),
+		return c.Status(err.(*fiber.Error).Code).JSON(ErrorResponse{
+			Message: err.(*fiber.Error).Error(),
 		})
 	}
 
@@ -603,6 +645,20 @@ func SetReaction(c *fiber.Ctx) error {
 	})
 }
 
+// CreateComment создает комментарий к посту или ответ на комментарий
+// @Summary      Создание комментария
+// @Description  Создает новый комментарий к посту или ответ на существующий комментарий
+// @Tags         Comment
+// @Security     ApiKeyAuth
+// @Accept       json
+// @Produce      json
+// @Param        data  body      CreateCommentRequest true "Данные комментария"
+// @Success      200   {object}  DataResponse[models.Comment]
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Router       /api/createComment [post]
 func CreateComment(c *fiber.Ctx) error {
 	var data CreateCommentRequest
 
@@ -686,6 +742,20 @@ func CreateComment(c *fiber.Ctx) error {
 	})
 }
 
+// DeleteComment удаляет комментарий пользователя
+// @Summary      Удаление комментария
+// @Description  Удаляет комментарий, если нет ответов — полностью, иначе помечает как удаленный
+// @Tags         Comment
+// @Security     ApiKeyAuth
+// @Produce      json
+// @Param        id   path      int true  "Id комментария"
+// @Success      200  {object}  MessageResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      401  {object}  ErrorResponse
+// @Failure      403  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /api/deleteComment/{id} [delete]
 func DeleteComment(c *fiber.Ctx) error {
 	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
@@ -763,16 +833,16 @@ func DeleteComment(c *fiber.Ctx) error {
 	})
 }
 
-// GetChildComments получает вложенные комментарии по parentId
+// GetChildComments получает дочерние комментарии по parentId
 // @Summary      Получение ответов на комментарий
-// @Description  Возвращает дочерние комментарии по parentId
+// @Description  Получает ответы на комментарий (дочерние комментарии) по parentId
 // @Tags         Comment
-// @Accept       json
 // @Produce      json
-// @Param        parentId  path  int true "Id родительского комментария"
-// @Success      200  {array}  DataResponse[[]models.Comment]
+// @Param        id   path      int true  "Id родительского комментария"
+// @Success      200  {array}   DataResponse[[]models.Comment]
 // @Failure      400  {object}  ErrorResponse
-// @Router       /api/getReplies [get]
+// @Failure      500  {object}  ErrorResponse
+// @Router       /api/getChildComments/{id} [get]
 func GetChildComments(c *fiber.Ctx) error {
 	parentId, err := strconv.ParseUint(c.Params("id"), 10, 64)
 	if err != nil || parentId == 0 {
