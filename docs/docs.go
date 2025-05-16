@@ -213,12 +213,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/controllers.CreatePostRequest"
                         }
-                    },
-                    {
-                        "type": "file",
-                        "description": "Файл изображения",
-                        "name": "file",
-                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1809,7 +1803,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Загружает файл и возвращает его URL и уникальное имя",
+                "description": "Загружает файл и возвращает его Id и URL",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1821,6 +1815,12 @@ const docTemplate = `{
                 ],
                 "summary": "Загрузка файла",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Тип файла",
+                        "name": "type",
+                        "in": "query"
+                    },
                     {
                         "type": "file",
                         "description": "Файл для загрузки",
@@ -2110,6 +2110,10 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "previewImageId": {
+                    "type": "integer",
+                    "example": 5
                 },
                 "tags": {
                     "type": "array",

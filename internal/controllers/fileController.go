@@ -21,11 +21,12 @@ func GenerateUniqueFilename(filename string) string {
 
 // UploadFile обрабатывает загрузку файла
 // @Summary      Загрузка файла
-// @Description  Загружает файл и возвращает его URL и уникальное имя
+// @Description  Загружает файл и возвращает его Id и URL
 // @Tags         File
 // @Security     ApiKeyAuth
 // @Accept       multipart/form-data
 // @Produce      json
+// @Param        type  query     string false "Тип файла"
 // @Param        file  formData  file true "Файл для загрузки"
 // @Success      200   {object}  FileResponse
 // @Failure      400   {object}  ErrorResponse
@@ -59,7 +60,7 @@ func UploadFile(c *fiber.Ctx) error {
 		})
 	}
 
-	filename, mimeType, err := ProcessUpload(c, "")
+	filename, mimeType, err := ProcessUpload(c, c.Query("type", ""))
 
 	if err != nil {
 		return c.Status(err.(*fiber.Error).Code).JSON(ErrorResponse{

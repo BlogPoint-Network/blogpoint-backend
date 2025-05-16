@@ -85,6 +85,9 @@ definitions:
         items:
           type: integer
         type: array
+      previewImageId:
+        example: 5
+        type: integer
       tags:
         items:
           type: integer
@@ -548,10 +551,6 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/controllers.CreatePostRequest'
-      - description: Файл изображения
-        in: formData
-        name: file
-        type: file
       produces:
       - application/json
       responses:
@@ -1579,8 +1578,12 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Загружает файл и возвращает его URL и уникальное имя
+      description: Загружает файл и возвращает его Id и URL
       parameters:
+      - description: Тип файла
+        in: query
+        name: type
+        type: string
       - description: Файл для загрузки
         in: formData
         name: file

@@ -91,7 +91,7 @@ CREATE TABLE channel_moderators (
 CREATE TABLE posts (
     id SERIAL PRIMARY KEY,
     channel_id INT REFERENCES channels(id) ON DELETE CASCADE,
-    preview_image INT REFERENCES files(id) ON DELETE SET NULL,
+    preview_image_id INT REFERENCES files(id) ON DELETE SET NULL,
     title VARCHAR(200) NOT NULL,
     content TEXT NOT NULL,
     likes_count INT DEFAULT 0,

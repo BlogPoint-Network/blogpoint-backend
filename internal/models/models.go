@@ -32,18 +32,18 @@ type Channel struct {
 }
 
 type Post struct {
-	Id            uint      `json:"id"`
-	ChannelId     uint      `json:"channelId"`
-	PreviewImage  uint      `json:"previewImage"`
-	Title         string    `json:"title"`
-	Content       string    `json:"content"`
-	LikesCount    uint      `json:"likesCount"`
-	DislikesCount uint      `json:"dislikesCount"`
-	ViewsCount    uint      `json:"viewsCount"`
-	PostImages    []File    `gorm:"many2many:post_images;" json:"postImages"`
-	PostFiles     []File    `gorm:"many2many:post_files;" json:"postFiles"`
-	Tags          []Tag     `gorm:"many2many:post_tags;" json:"tags"`
-	CreatedAt     time.Time `json:"createdAt"`
+	Id             uint      `json:"id"`
+	ChannelId      uint      `json:"channelId"`
+	PreviewImageId *uint     `json:"previewImage"`
+	Title          string    `json:"title"`
+	Content        string    `json:"content"`
+	LikesCount     uint      `json:"likesCount"`
+	DislikesCount  uint      `json:"dislikesCount"`
+	ViewsCount     uint      `json:"viewsCount"`
+	PostImages     []File    `gorm:"many2many:post_images;" json:"postImages"`
+	PostFiles      []File    `gorm:"many2many:post_files;" json:"postFiles"`
+	Tags           []Tag     `gorm:"many2many:post_tags;" json:"tags"`
+	CreatedAt      time.Time `json:"createdAt"`
 }
 
 type Category struct {

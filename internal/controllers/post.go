@@ -3,12 +3,15 @@ package controllers
 import (
 	"blogpoint-backend/internal/models"
 	"blogpoint-backend/internal/repository"
+	"blogpoint-backend/internal/storage"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 	"strconv"
+	"strings"
 )
 
 // CreatePost создает новый пост
@@ -19,7 +22,6 @@ import (
 // @Accept       json
 // @Produce      json
 // @Param        data  body      CreatePostRequest true "Данные поста (channelId, title, content, tags)"
-// @Param        file  formData  file false "Файл изображения"
 // @Success      200   {object}  DataResponse[models.Post]
 // @Failure      400   {object}  ErrorResponse
 // @Failure      401   {object}  ErrorResponse
@@ -95,39 +97,43 @@ func CreatePost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "No tag Ids provided"})
 	}
 
+	var previewFile *models.File
+	if data.PreviewImageId != nil {
+		if err := repository.DB.First(&previewFile, *data.PreviewImageId).Error; err != nil {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Error preview image does not exist",
+			})
+		}
+
+		if previewFile.OwnerId != uint(userId) {
+			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Message: "You don't own the preview image"})
+		}
+
+		if strings.Split(previewFile.MimeType, "/")[0] != "image" {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Preview image file type is not allowed",
+			})
+		}
+	}
+
 	post := models.Post{
-		ChannelId: data.ChannelId,
-		Title:     data.Title,
-		Content:   data.Content,
+		ChannelId:      data.ChannelId,
+		PreviewImageId: data.PreviewImageId,
+		Title:          data.Title,
+		Content:        data.Content,
 	}
 
-	filename, mimeType, err := ProcessUpload(c, "image")
-	if err != nil {
-		return c.Status(err.(*fiber.Error).Code).JSON(ErrorResponse{
-			Message: err.(*fiber.Error).Error(),
-		})
-	}
-
-	file := models.File{
-		OwnerId:  uint(userId),
-		Filename: filename,
-		MimeType: mimeType,
-	}
-
-	if err = repository.DB.Create(&file).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Message: "Error saving file to DB"})
-	}
-
-	if err = repository.DB.Model(&post).Update("preview_image", file.Id).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Message: "Error saving preview image id"})
-	}
+	var tags []models.Tag
+	var postImages []models.File
+	var postFiles []models.File
 
 	err = repository.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&post).Error; err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError, "Failed to create post")
 		}
 
-		var tags []models.Tag
 		if err := tx.Where("id IN ?", data.Tags).Find(&tags).Error; err != nil || len(tags) != len(data.Tags) {
 			return fiber.NewError(fiber.StatusBadRequest, "One or more tag Ids are invalid")
 		}
@@ -136,17 +142,26 @@ func CreatePost(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusInternalServerError, "Failed to attach tags to post")
 		}
 
-		var postImages []models.File
 		if len(data.PostImages) > 0 {
 			if err := tx.Where("id IN ?", data.PostImages).Find(&postImages).Error; err != nil || len(postImages) != len(data.PostImages) {
 				return fiber.NewError(fiber.StatusBadRequest, "One or more post image Ids are invalid")
 			}
+
+			for _, file := range postImages {
+				if file.OwnerId != uint(userId) {
+					return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("You don't own file with Id %d", file.Id))
+				}
+				if strings.Split(file.MimeType, "/")[0] != "image" {
+					return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("File with Id %d is not an image", file.Id))
+				}
+
+			}
+
 			if err := tx.Model(&post).Association("PostImages").Append(postImages); err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to attach post images")
 			}
 		}
 
-		var postFiles []models.File
 		if len(data.PostFiles) > 0 {
 			if err := tx.Where("id IN ?", data.PostFiles).Find(&postFiles).Error; err != nil || len(postFiles) != len(data.PostFiles) {
 				return fiber.NewError(fiber.StatusBadRequest, "One or more post file Ids are invalid")
@@ -169,8 +184,8 @@ func CreatePost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to load post with tags"})
 	}
 
-	return c.JSON(DataResponse[models.Post]{
-		Data:    post,
+	return c.JSON(DataResponse[PostResponse]{
+		Data:    ConvertPostToResponse(post, previewFile, []CommentResponse{}),
 		Message: "Post created successfully",
 	})
 }
@@ -402,7 +417,8 @@ func GetPost(c *fiber.Ctx) error {
 	}
 
 	var post models.Post
-	if err := repository.DB.Preload("Tags").First(&post, Id).Error; err != nil {
+	if err := repository.DB.Preload("Tags").Preload("PostImages").Preload("PostFiles").
+		First(&post, Id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"message": "Post not found",
@@ -453,7 +469,7 @@ func GetPost(c *fiber.Ctx) error {
 		replyCountMap[c.ParentID] = c.Count
 	}
 
-	var commentResponses []CommentResponse
+	commentResponses := make([]CommentResponse, 0)
 	for _, cmt := range comments {
 		resp := CommentResponse{
 			Id:           cmt.Id,
@@ -485,13 +501,16 @@ func GetPost(c *fiber.Ctx) error {
 		})
 	}
 
-	postResponse := PostResponse{
-		Post:     post,
-		Comments: commentResponses,
+	var previewFile *models.File
+	if post.PreviewImageId != nil {
+		var file models.File
+		if err := repository.DB.First(&file, *post.PreviewImageId).Error; err == nil {
+			previewFile = &file
+		}
 	}
 
 	return c.JSON(DataResponse[PostResponse]{
-		Data: postResponse,
+		Data: ConvertPostToResponse(post, previewFile, commentResponses),
 	})
 }
 
@@ -918,4 +937,46 @@ func GetChildComments(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(DataResponse[[]CommentResponse]{Data: response})
+}
+
+func ConvertPostToResponse(post models.Post, previewImage *models.File, comments []CommentResponse) PostResponse {
+	var preview *FileResponse
+	if previewImage != nil {
+		preview = &FileResponse{
+			Id:  previewImage.Id,
+			Url: storage.GetUrl(previewImage.Filename)}
+
+	}
+
+	postImages := make([]FileResponse, 0, len(post.PostImages))
+	for _, f := range post.PostImages {
+		postImages = append(postImages, FileResponse{
+			Id:  f.Id,
+			Url: storage.GetUrl(f.Filename),
+		})
+	}
+
+	postFiles := make([]FileResponse, 0, len(post.PostFiles))
+	for _, f := range post.PostFiles {
+		postFiles = append(postFiles, FileResponse{
+			Id:  f.Id,
+			Url: storage.GetUrl(f.Filename),
+		})
+	}
+
+	return PostResponse{
+		Id:            post.Id,
+		ChannelId:     post.ChannelId,
+		PreviewImage:  preview,
+		Title:         post.Title,
+		Content:       post.Content,
+		LikesCount:    post.LikesCount,
+		DislikesCount: post.DislikesCount,
+		ViewsCount:    post.ViewsCount,
+		PostImages:    postImages,
+		PostFiles:     postFiles,
+		Tags:          post.Tags,
+		CreatedAt:     post.CreatedAt,
+		Comments:      comments,
+	}
 }

@@ -1,6 +1,9 @@
 package controllers
 
-import "blogpoint-backend/internal/models"
+import (
+	"blogpoint-backend/internal/models"
+	"time"
+)
 
 type DataResponse[T any] struct {
 	Data    T      `json:"data"`
@@ -21,8 +24,19 @@ type ErrorResponse struct {
 }
 
 type PostResponse struct {
-	models.Post
-	Comments []CommentResponse `json:"comments"`
+	Id            uint              `json:"id"`
+	ChannelId     uint              `json:"channelId"`
+	PreviewImage  *FileResponse     `json:"previewImage"`
+	Title         string            `json:"title"`
+	Content       string            `json:"content"`
+	LikesCount    uint              `json:"likesCount"`
+	DislikesCount uint              `json:"dislikesCount"`
+	ViewsCount    uint              `json:"viewsCount"`
+	PostImages    []FileResponse    `json:"postImages"`
+	PostFiles     []FileResponse    `json:"postFiles"`
+	Tags          []models.Tag      `json:"tags"`
+	CreatedAt     time.Time         `json:"createdAt"`
+	Comments      []CommentResponse `json:"comments"`
 }
 
 type CommentResponse struct {
@@ -118,12 +132,13 @@ type LanguageUpdateRequest struct {
 }
 
 type CreatePostRequest struct {
-	ChannelId  uint   `json:"channelId" example:"1"`
-	Title      string `json:"title" example:"Today's news"`
-	Content    string `json:"content" example:"Something here"`
-	Tags       []uint `json:"tags"`
-	PostImages []uint `json:"postImages"`
-	PostFiles  []uint `json:"postFiles"`
+	ChannelId      uint   `json:"channelId" example:"1"`
+	PreviewImageId *uint  `json:"previewImageId" example:"5"`
+	Title          string `json:"title" example:"Today's news"`
+	Content        string `json:"content" example:"Something here"`
+	Tags           []uint `json:"tags"`
+	PostImages     []uint `json:"postImages"`
+	PostFiles      []uint `json:"postFiles"`
 }
 
 type EditPostRequest struct {
