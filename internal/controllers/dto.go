@@ -23,20 +23,38 @@ type ErrorResponse struct {
 	Message string `json:"message" example:"Example"`
 }
 
+type UserResponse struct {
+	Id         uint          `json:"id"`
+	Login      string        `json:"login"`
+	Email      string        `json:"email"`
+	Language   string        `json:"language"`
+	IsVerified bool          `json:"isVerified"`
+	Logo       *FileResponse `json:"logo"`
+}
+
+type ChannelResponse struct {
+	Id          uint             `json:"id"`
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Category    *models.Category `json:"category"`
+	OwnerId     uint             `json:"ownerId"`
+	SubsCount   uint             `json:"subsCount"`
+	Logo        *FileResponse    `json:"logo"`
+}
+
 type PostResponse struct {
-	Id            uint              `json:"id"`
-	ChannelId     uint              `json:"channelId"`
-	PreviewImage  *FileResponse     `json:"previewImage"`
-	Title         string            `json:"title"`
-	Content       string            `json:"content"`
-	LikesCount    uint              `json:"likesCount"`
-	DislikesCount uint              `json:"dislikesCount"`
-	ViewsCount    uint              `json:"viewsCount"`
-	PostImages    []FileResponse    `json:"postImages"`
-	PostFiles     []FileResponse    `json:"postFiles"`
-	Tags          []models.Tag      `json:"tags"`
-	CreatedAt     time.Time         `json:"createdAt"`
-	Comments      []CommentResponse `json:"comments"`
+	Id            uint           `json:"id"`
+	ChannelId     uint           `json:"channelId"`
+	PreviewImage  *FileResponse  `json:"previewImage"`
+	Title         string         `json:"title"`
+	Content       string         `json:"content"`
+	LikesCount    uint           `json:"likesCount"`
+	DislikesCount uint           `json:"dislikesCount"`
+	ViewsCount    uint           `json:"viewsCount"`
+	PostImages    []FileResponse `json:"postImages"`
+	PostFiles     []FileResponse `json:"postFiles"`
+	Tags          []models.Tag   `json:"tags"`
+	CreatedAt     time.Time      `json:"createdAt"`
 }
 
 type CommentResponse struct {
@@ -47,9 +65,9 @@ type CommentResponse struct {
 	IsDeleted    bool   `json:"isDeleted"`
 	RepliesCount int    `json:"repliesCount"`
 	User         struct {
-		Id       uint   `json:"id"`
-		Username string `json:"username"`
-		//AvatarURL string `json:"avatarUrl"`
+		Id    uint          `json:"id"`
+		Login string        `json:"login"`
+		Logo  *FileResponse `json:"logo"`
 	} `json:"user"`
 }
 
@@ -142,10 +160,13 @@ type CreatePostRequest struct {
 }
 
 type EditPostRequest struct {
-	PostId  uint   `json:"postId" example:"1"`
-	Title   string `json:"title" example:"Today's news"`
-	Content string `json:"content" example:"Something here"`
-	Tags    []uint `json:"tags"`
+	PostId         uint   `json:"postId" example:"1"`
+	PreviewImageId *uint  `json:"previewImage"`
+	Title          string `json:"title" example:"Today's news"`
+	Content        string `json:"content" example:"Something here"`
+	Tags           []uint `json:"tags"`
+	PostImages     []uint `json:"postImages"`
+	PostFiles      []uint `json:"postFiles"`
 }
 
 type SetReactionRequest struct {

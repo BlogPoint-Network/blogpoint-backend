@@ -22,7 +22,7 @@ import (
 // @Accept       json
 // @Produce      json
 // @Param        data  body      CreatePostRequest true "Данные поста (channelId, title, content, tags)"
-// @Success      200   {object}  DataResponse[models.Post]
+// @Success      200   {object}  DataResponse[PostResponse]
 // @Failure      400   {object}  ErrorResponse
 // @Failure      401   {object}  ErrorResponse
 // @Failure      403   {object}  ErrorResponse
@@ -185,7 +185,7 @@ func CreatePost(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(DataResponse[PostResponse]{
-		Data:    ConvertPostToResponse(post, previewFile, []CommentResponse{}),
+		Data:    ConvertPostToResponse(post, previewFile),
 		Message: "Post created successfully",
 	})
 }
@@ -198,7 +198,7 @@ func CreatePost(c *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Param        data  body      EditPostRequest true "Данные для обновления поста (postId, title?, content?, tags?)"
-// @Success      200   {object}  DataResponse[models.Post]
+// @Success      200   {object}  DataResponse[PostResponse]
 // @Failure      400   {object}  ErrorResponse
 // @Failure      401   {object}  ErrorResponse
 // @Failure      403   {object}  ErrorResponse
@@ -275,13 +275,38 @@ func EditPost(c *fiber.Ctx) error {
 		post.Content = data.Content
 	}
 
+	var previewFile *models.File
+	if data.PreviewImageId != nil {
+		if err := repository.DB.First(&previewFile, *data.PreviewImageId).Error; err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Preview image does not exist")
+		}
+
+		if previewFile.OwnerId != uint(uintId) {
+			return fiber.NewError(fiber.StatusForbidden, "You don't own the preview image")
+		}
+
+		if strings.Split(previewFile.MimeType, "/")[0] != "image" {
+			return fiber.NewError(fiber.StatusBadRequest, "Preview image file type is not allowed")
+		}
+
+		post.PreviewImageId = data.PreviewImageId
+	} else if post.PreviewImageId != nil {
+		if err := repository.DB.First(&previewFile, *post.PreviewImageId).Error; err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Preview image does not exist")
+		}
+
+		if strings.Split(previewFile.MimeType, "/")[0] != "image" {
+			return fiber.NewError(fiber.StatusBadRequest, "Preview image file type is not allowed")
+		}
+	}
+
 	// Начинаем транзакцию
 	err = repository.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(&post).Error; err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError, "Failed to update post")
 		}
 
-		if len(data.Tags) > 0 {
+		if data.Tags != nil {
 			var tags []models.Tag
 			if err := tx.Where("id IN ?", data.Tags).Find(&tags).Error; err != nil || len(tags) != len(data.Tags) {
 				return fiber.NewError(fiber.StatusBadRequest, "One or more tag IDs are invalid")
@@ -289,6 +314,39 @@ func EditPost(c *fiber.Ctx) error {
 
 			if err := tx.Model(&post).Association("Tags").Replace(tags); err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to update tags")
+			}
+		}
+
+		if data.PostImages != nil {
+			var postImages []models.File
+			if err := tx.Where("id IN ?", data.PostImages).Find(&postImages).Error; err != nil || len(postImages) != len(data.PostImages) {
+				return fiber.NewError(fiber.StatusBadRequest, "One or more post image IDs are invalid")
+			}
+			for _, file := range postImages {
+				if file.OwnerId != uint(uintId) {
+					return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("You don't own image with ID %d", file.Id))
+				}
+				if strings.Split(file.MimeType, "/")[0] != "image" {
+					return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("File with ID %d is not an image", file.Id))
+				}
+			}
+			if err := tx.Model(&post).Association("PostImages").Replace(&postImages); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "Failed to update post images")
+			}
+		}
+
+		if data.PostFiles != nil {
+			var postFiles []models.File
+			if err := tx.Where("id IN ?", data.PostFiles).Find(&postFiles).Error; err != nil || len(postFiles) != len(data.PostFiles) {
+				return fiber.NewError(fiber.StatusBadRequest, "One or more post file IDs are invalid")
+			}
+			for _, file := range postFiles {
+				if file.OwnerId != uint(uintId) {
+					return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("You don't own file with ID %d", file.Id))
+				}
+			}
+			if err := tx.Model(&post).Association("PostFiles").Replace(&postFiles); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "Failed to update post files")
 			}
 		}
 
@@ -305,8 +363,8 @@ func EditPost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to load post with tags"})
 	}
 
-	return c.JSON(DataResponse[models.Post]{
-		Data:    post,
+	return c.JSON(DataResponse[PostResponse]{
+		Data:    ConvertPostToResponse(post, previewFile),
 		Message: "Post updated successfully",
 	})
 }
@@ -403,7 +461,7 @@ func DeletePost(c *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Param        id      path      int true "Id поста"
-// @Success      200     {object}  DataResponse[models.Post]
+// @Success      200     {object}  DataResponse[PostResponse]
 // @Failure      400     {object}  ErrorResponse
 // @Failure      404     {object}  ErrorResponse
 // @Router       /api/getPost/{id} [get]
@@ -429,72 +487,6 @@ func GetPost(c *fiber.Ctx) error {
 		})
 	}
 
-	var comments []models.Comment
-	if err := repository.DB.Where("post_id = ? AND parent_id IS NULL", post.Id).
-		Order("created_at ASC").Find(&comments).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-			Message: "Failed to load comments",
-		})
-	}
-
-	userIds := make([]uint, 0)
-	for _, c := range comments {
-		userIds = append(userIds, c.UserId)
-	}
-
-	var users []models.User
-	if len(userIds) > 0 {
-		repository.DB.Where("id IN ?", userIds).Find(&users)
-	}
-
-	userMap := make(map[uint]models.User)
-	for _, u := range users {
-		userMap[u.Id] = u
-	}
-
-	type CountResult struct {
-		ParentID uint
-		Count    int
-	}
-
-	var counts []CountResult
-	repository.DB.Table("comments").
-		Select("parent_id, COUNT(*) as count").
-		Where("post_id = ? AND parent_id IS NOT NULL", post.Id).
-		Group("parent_id").
-		Scan(&counts)
-
-	replyCountMap := make(map[uint]int)
-	for _, c := range counts {
-		replyCountMap[c.ParentID] = c.Count
-	}
-
-	commentResponses := make([]CommentResponse, 0)
-	for _, cmt := range comments {
-		resp := CommentResponse{
-			Id:           cmt.Id,
-			PostId:       cmt.PostId,
-			ParentId:     nil,
-			Content:      cmt.Content,
-			IsDeleted:    cmt.IsDeleted,
-			RepliesCount: replyCountMap[cmt.Id],
-		}
-
-		if user, ok := userMap[cmt.UserId]; ok {
-			resp.User = struct {
-				Id       uint   `json:"id"`
-				Username string `json:"username"`
-				//AvatarURL string `json:"avatarUrl"`
-			}{
-				Id:       user.Id,
-				Username: user.Login,
-				//AvatarURL: user.AvatarUrl,
-			}
-		}
-
-		commentResponses = append(commentResponses, resp)
-	}
-
 	if err := repository.DB.Model(&post).UpdateColumn("views_count", gorm.Expr("views_count + 1")).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Message: "Failed to update view count",
@@ -510,7 +502,7 @@ func GetPost(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(DataResponse[PostResponse]{
-		Data: ConvertPostToResponse(post, previewFile, commentResponses),
+		Data: ConvertPostToResponse(post, previewFile),
 	})
 }
 
@@ -522,7 +514,7 @@ func GetPost(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        channelId  path      int true  "Id канала"
 // @Param        page       query     int false "Номер страницы (по умолчанию 1)"
-// @Success      200        {array}   DataResponse[[]models.Post]
+// @Success      200        {array}   DataResponse[[]PostResponse]
 // @Failure      400        {object}  ErrorResponse
 // @Failure      500        {object}  ErrorResponse
 // @Router       /api/getPosts/{channelId} [get]
@@ -545,14 +537,38 @@ func GetPosts(c *fiber.Ctx) error {
 	offset := (page - 1) * 10
 
 	var posts []models.Post
-	if err := repository.DB.Preload("Tags").Where("channel_id = ?", channelId).Limit(10).Offset(offset).Find(&posts).Error; err != nil {
+	if err := repository.DB.Preload("Tags").Preload("PostImages").Preload("PostFiles").
+		Where("channel_id = ?", channelId).Limit(10).Offset(offset).Find(&posts).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Message: "Failed to fetch posts",
 		})
 	}
 
-	return c.JSON(DataResponse[[]models.Post]{
-		Data: posts,
+	var postsResponse []PostResponse
+	for _, post := range posts {
+
+		var preview *models.File
+		if post.PreviewImageId != nil {
+			if err := repository.DB.First(&preview, *post.PreviewImageId).Error; err != nil {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Error logo does not exist",
+				})
+			}
+
+			if strings.Split(preview.MimeType, "/")[0] != "image" {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Logo image file type is not allowed",
+				})
+			}
+		}
+
+		postsResponse = append(postsResponse, ConvertPostToResponse(post, preview))
+	}
+
+	return c.JSON(DataResponse[[]PostResponse]{
+		Data: postsResponse,
 	})
 }
 
@@ -852,40 +868,57 @@ func DeleteComment(c *fiber.Ctx) error {
 	})
 }
 
-// GetChildComments получает дочерние комментарии по parentId
-// @Summary      Получение ответов на комментарий
-// @Description  Получает ответы на комментарий (дочерние комментарии) по parentId
+// GetPostComments возвращает корневые или дочерние комментарии поста с пагинацией
+// @Summary      Получение комментариев
+// @Description  Возвращает комментарии к посту, поддерживает пагинацию и фильтрацию по parentId
 // @Tags         Comment
+// @Accept       json
 // @Produce      json
-// @Param        id   path      int true  "Id родительского комментария"
-// @Success      200  {array}   DataResponse[[]models.Comment]
+// @Param        postId     query     int  true  "Id поста"
+// @Param        parentId   query     int  false "Id родительского комментария (для подкомментариев)"
+// @Param        offset     query     int  false "Смещение (для пагинации)"
+// @Param        limit      query     int  false "Количество комментариев на странице"
+// @Success      200  {object}  DataResponse[[]CommentResponse]
 // @Failure      400  {object}  ErrorResponse
 // @Failure      500  {object}  ErrorResponse
-// @Router       /api/getChildComments/{id} [get]
-func GetChildComments(c *fiber.Ctx) error {
-	parentId, err := strconv.ParseUint(c.Params("id"), 10, 64)
-	if err != nil || parentId == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Message: "Invalid parent id",
-		})
+// @Router       /api/getPostComments [get]
+func GetPostComments(c *fiber.Ctx) error {
+	postId, err := strconv.ParseUint(c.Query("postId"), 10, 64)
+	if err != nil || postId == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Message: "Invalid postId"})
 	}
 
-	var replies []models.Comment
-	if err := repository.DB.
-		Where("parent_id = ?", parentId).
-		Order("created_at ASC").
-		Find(&replies).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-			Message: "Failed to fetch replies",
-		})
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	offset, _ := strconv.Atoi(c.Query("offset", "0"))
+
+	var parentId *uint
+	if pid := c.Query("parentId"); pid != "" {
+		if parsed, err := strconv.ParseUint(pid, 10, 64); err == nil {
+			p := uint(parsed)
+			parentId = &p
+		}
+	}
+
+	// Загружаем комментарии
+	var comments []models.Comment
+	query := repository.DB.Where("post_id = ?", postId)
+	if parentId != nil {
+		query = query.Where("parent_id = ?", *parentId)
+	} else {
+		query = query.Where("parent_id IS NULL")
+	}
+	query = query.Order("created_at ASC").Limit(limit).Offset(offset)
+	if err := query.Find(&comments).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Message: "Failed to load comments"})
 	}
 
 	// Собираем userIds
-	userIds := make([]uint, 0, len(replies))
-	for _, r := range replies {
-		userIds = append(userIds, r.UserId)
+	userIds := make([]uint, 0)
+	for _, c := range comments {
+		userIds = append(userIds, c.UserId)
 	}
 
+	// Загружаем пользователей и их лого
 	var users []models.User
 	if len(userIds) > 0 {
 		repository.DB.Where("id IN ?", userIds).Find(&users)
@@ -896,14 +929,31 @@ func GetChildComments(c *fiber.Ctx) error {
 		userMap[u.Id] = u
 	}
 
-	// Получаем количество ответов на каждый комментарий
-	var counts []struct {
+	// Загружаем файлы (лого)
+	var fileIds []uint
+	for _, u := range users {
+		if u.LogoId != nil {
+			fileIds = append(fileIds, *u.LogoId)
+		}
+	}
+	var files []models.File
+	if len(fileIds) > 0 {
+		repository.DB.Where("id IN ?", fileIds).Find(&files)
+	}
+	fileMap := make(map[uint]models.File)
+	for _, f := range files {
+		fileMap[f.Id] = f
+	}
+
+	// Подсчёт количества ответов
+	type CountResult struct {
 		ParentID uint
 		Count    int
 	}
+	var counts []CountResult
 	repository.DB.Table("comments").
 		Select("parent_id, COUNT(*) as count").
-		Where("parent_id IN ?", userIds).
+		Where("post_id = ? AND parent_id IS NOT NULL", postId).
 		Group("parent_id").
 		Scan(&counts)
 
@@ -912,34 +962,45 @@ func GetChildComments(c *fiber.Ctx) error {
 		replyCountMap[c.ParentID] = c.Count
 	}
 
-	var response []CommentResponse
-	for _, r := range replies {
-		resp := CommentResponse{
-			Id:           r.Id,
-			PostId:       r.PostId,
-			ParentId:     r.ParentId,
-			Content:      r.Content,
-			IsDeleted:    r.IsDeleted,
-			RepliesCount: replyCountMap[r.Id],
-		}
-
-		if user, ok := userMap[r.UserId]; ok {
-			resp.User = struct {
-				Id       uint   `json:"id"`
-				Username string `json:"username"`
-			}{
-				Id:       user.Id,
-				Username: user.Login,
+	// Формирование ответа
+	commentResponses := make([]CommentResponse, 0, len(comments))
+	for _, cmt := range comments {
+		user := userMap[cmt.UserId]
+		var fileResponse *FileResponse
+		if user.LogoId != nil {
+			if file, ok := fileMap[*user.LogoId]; ok {
+				fileResponse = &FileResponse{
+					Id:  file.Id,
+					Url: storage.GetUrl(file.Filename),
+				}
 			}
 		}
-
-		response = append(response, resp)
+		resp := CommentResponse{
+			Id:           cmt.Id,
+			PostId:       cmt.PostId,
+			ParentId:     cmt.ParentId,
+			Content:      cmt.Content,
+			IsDeleted:    cmt.IsDeleted,
+			RepliesCount: replyCountMap[cmt.Id],
+			User: struct {
+				Id    uint          `json:"id"`
+				Login string        `json:"login"`
+				Logo  *FileResponse `json:"logo"`
+			}{
+				Id:    user.Id,
+				Login: user.Login,
+				Logo:  fileResponse,
+			},
+		}
+		commentResponses = append(commentResponses, resp)
 	}
 
-	return c.JSON(DataResponse[[]CommentResponse]{Data: response})
+	return c.JSON(DataResponse[[]CommentResponse]{
+		Data: commentResponses,
+	})
 }
 
-func ConvertPostToResponse(post models.Post, previewImage *models.File, comments []CommentResponse) PostResponse {
+func ConvertPostToResponse(post models.Post, previewImage *models.File) PostResponse {
 	var preview *FileResponse
 	if previewImage != nil {
 		preview = &FileResponse{
@@ -977,6 +1038,5 @@ func ConvertPostToResponse(post models.Post, previewImage *models.File, comments
 		PostFiles:     postFiles,
 		Tags:          post.Tags,
 		CreatedAt:     post.CreatedAt,
-		Comments:      comments,
 	}
 }

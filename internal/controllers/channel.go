@@ -9,7 +9,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
+	"log"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,7 +23,7 @@ import (
 // @Accept       json
 // @Produce      json
 // @Param        data  body      CreateChannelRequest true "Данные канала"
-// @Success      200   {object}  DataResponse[models.Channel]
+// @Success      200   {object}  DataResponse[ChannelResponse]
 // @Failure      400   {object}  ErrorResponse
 // @Failure      401   {object}  ErrorResponse
 // @Router       /api/createChannel [post]
@@ -60,6 +62,14 @@ func CreateChannel(c *fiber.Ctx) error {
 		})
 	}
 
+	var existingChannel models.Channel
+	if result := repository.DB.Where("name = ?", data.Name).First(&existingChannel); result.Error == nil {
+		c.Status(fiber.StatusConflict)
+		return c.JSON(ErrorResponse{
+			Message: "A channel with the same name already exists",
+		})
+	}
+
 	if data.Name == "" {
 		c.Status(fiber.StatusBadRequest)
 		return c.JSON(ErrorResponse{
@@ -86,8 +96,25 @@ func CreateChannel(c *fiber.Ctx) error {
 	repository.DB.Create(&channel)
 	repository.DB.Preload("Category").First(&channel, channel.Id)
 
-	return c.JSON(DataResponse[models.Channel]{
-		Data:    channel,
+	var logo *models.File
+	if channel.LogoId != nil {
+		if err := repository.DB.First(&logo, *channel.LogoId).Error; err != nil {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Error logo does not exist",
+			})
+		}
+
+		if strings.Split(logo.MimeType, "/")[0] != "image" {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Logo image file type is not allowed",
+			})
+		}
+	}
+
+	return c.JSON(DataResponse[ChannelResponse]{
+		Data:    ConvertChannelToResponse(channel, logo),
 		Message: "Channel created successfully",
 	})
 }
@@ -100,7 +127,7 @@ func CreateChannel(c *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Param        data  body      EditChannelRequest true "Обновленные данные канала"
-// @Success      200   {object}  DataResponse[models.Channel]
+// @Success      200   {object}  DataResponse[ChannelResponse]
 // @Failure      400   {object}  ErrorResponse
 // @Failure      401   {object}  ErrorResponse
 // @Failure      403   {object}  ErrorResponse
@@ -193,8 +220,25 @@ func EditChannel(c *fiber.Ctx) error {
 	}
 	repository.DB.Preload("Category").First(&channel, channel.Id)
 
-	return c.JSON(DataResponse[models.Channel]{
-		Data:    channel,
+	var logo *models.File
+	if channel.LogoId != nil {
+		if err := repository.DB.First(&logo, *channel.LogoId).Error; err != nil {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Error logo does not exist",
+			})
+		}
+
+		if strings.Split(logo.MimeType, "/")[0] != "image" {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Logo image file type is not allowed",
+			})
+		}
+	}
+
+	return c.JSON(DataResponse[ChannelResponse]{
+		Data:    ConvertChannelToResponse(channel, logo),
 		Message: "Channel edited successfully",
 	})
 }
@@ -430,15 +474,6 @@ func DeleteChannelLogo(c *fiber.Ctx) error {
 	})
 }
 
-//
-//
-//
-//
-//
-//
-//
-//
-
 // DeleteChannel удаляет канал
 // @Summary      Удаление канала
 // @Description  Удаляет канал, если пользователь является его владельцем
@@ -523,7 +558,7 @@ func DeleteChannel(c *fiber.Ctx) error {
 // @Tags         Channel
 // @Security     ApiKeyAuth
 // @Produce      json
-// @Success      200  {array}   DataResponse[models.Channel]
+// @Success      200  {array}   DataResponse[[]ChannelResponse]
 // @Failure      401  {object}  ErrorResponse
 // @Failure      500  {object}  ErrorResponse
 // @Router       /api/getUserSubscriptions [get]
@@ -557,8 +592,33 @@ func GetUserSubscriptions(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(DataResponse[[]models.Channel]{
-		Data: channels,
+	var channelsResponse []ChannelResponse
+	for _, channel := range channels {
+
+		var logo *models.File
+		if channel.LogoId != nil {
+			if err := repository.DB.First(&logo, *channel.LogoId).Error; err != nil {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Error logo does not exist",
+				})
+			}
+
+			if strings.Split(logo.MimeType, "/")[0] != "image" {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Logo image file type is not allowed",
+				})
+			}
+		}
+
+		repository.DB.Preload("Category").First(&channel, channel.Id)
+
+		channelsResponse = append(channelsResponse, ConvertChannelToResponse(channel, logo))
+	}
+
+	return c.JSON(DataResponse[[]ChannelResponse]{
+		Data: channelsResponse,
 	})
 }
 
@@ -568,7 +628,7 @@ func GetUserSubscriptions(c *fiber.Ctx) error {
 // @Tags         Channel
 // @Security     ApiKeyAuth
 // @Produce      json
-// @Success      200  {array}   DataResponse[models.Channel]
+// @Success      200  {array}   DataResponse[[]ChannelResponse]
 // @Failure      401  {object}  ErrorResponse
 // @Failure      500  {object}  ErrorResponse
 // @Router       /api/getUserChannels [get]
@@ -600,8 +660,33 @@ func GetUserChannels(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(DataResponse[[]models.Channel]{
-		Data: channels,
+	var channelsResponse []ChannelResponse
+	for _, channel := range channels {
+
+		var logo *models.File
+		if channel.LogoId != nil {
+			if err := repository.DB.First(&logo, *channel.LogoId).Error; err != nil {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Error logo does not exist",
+				})
+			}
+
+			if strings.Split(logo.MimeType, "/")[0] != "image" {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Logo image file type is not allowed",
+				})
+			}
+		}
+
+		repository.DB.Preload("Category").First(&channel, channel.Id)
+
+		channelsResponse = append(channelsResponse, ConvertChannelToResponse(channel, logo))
+	}
+
+	return c.JSON(DataResponse[[]ChannelResponse]{
+		Data: channelsResponse,
 	})
 }
 
@@ -612,7 +697,7 @@ func GetUserChannels(c *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Param        id    path      int true "ID канала"
-// @Success      200   {object}  DataResponse[models.Channel]
+// @Success      200   {object}  DataResponse[ChannelResponse]
 // @Failure      400   {object}  ErrorResponse
 // @Failure      404   {object}  ErrorResponse
 // @Failure      500   {object}  ErrorResponse
@@ -640,8 +725,24 @@ func GetChannel(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(DataResponse[models.Channel]{
-		Data: channel,
+	var logo *models.File
+	if channel.LogoId != nil {
+		if err := repository.DB.First(&logo, *channel.LogoId).Error; err != nil {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Error logo does not exist"})
+		}
+		if strings.Split(logo.MimeType, "/")[0] != "image" {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Logo image file type is not allowed"})
+		}
+	}
+
+	repository.DB.Preload("Category").First(&channel, channel.Id)
+
+	return c.JSON(DataResponse[ChannelResponse]{
+		Data: ConvertChannelToResponse(channel, logo),
 	})
 }
 
@@ -650,7 +751,7 @@ func GetChannel(c *fiber.Ctx) error {
 // @Description  Возвращает список каналов, отсортированных по количеству подписчиков по убыванию
 // @Tags         Channel
 // @Produce      json
-// @Success      200  {array}   DataResponse[models.Channel]
+// @Success      200  {array}   DataResponse[[]ChannelResponse]
 // @Failure      500  {object}  ErrorResponse
 // @Router       /api/getPopularChannels [get]
 func GetPopularChannels(c *fiber.Ctx) error {
@@ -667,8 +768,33 @@ func GetPopularChannels(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(DataResponse[[]models.Channel]{
-		Data: channels,
+	var channelsResponse []ChannelResponse
+	for _, channel := range channels {
+
+		var logo *models.File
+		if channel.LogoId != nil {
+			if err := repository.DB.First(&logo, *channel.LogoId).Error; err != nil {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Error logo does not exist",
+				})
+			}
+
+			if strings.Split(logo.MimeType, "/")[0] != "image" {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Logo image file type is not allowed",
+				})
+			}
+		}
+
+		repository.DB.Preload("Category").First(&channel, channel.Id)
+
+		channelsResponse = append(channelsResponse, ConvertChannelToResponse(channel, logo))
+	}
+
+	return c.JSON(DataResponse[[]ChannelResponse]{
+		Data: channelsResponse,
 	})
 }
 
@@ -894,6 +1020,35 @@ func GetChannelStatistics(c *fiber.Ctx) error {
 
 	today := time.Now().Truncate(24 * time.Hour)
 
+	repository.DB.Where("date = ? AND channel_id = ?", today, channel.Id).Delete(&models.ChannelStatistics{})
+
+	stats := models.ChannelStatistics{
+		ChannelId: channel.Id,
+		Date:      today,
+	}
+
+	repository.DB.
+		Model(&models.Post{}).
+		Where("channel_id = ?", channel.Id).
+		Select("COALESCE(SUM(likes_count), 0), COALESCE(SUM(dislikes_count), 0), COALESCE(SUM(views_count), 0), COUNT(*)").
+		Row().
+		Scan(&stats.Likes, &stats.Dislikes, &stats.Views, &stats.Posts)
+
+	var commentsCount int64
+	repository.DB.
+		Model(&models.Comment{}).
+		Joins("JOIN posts ON comments.post_id = posts.id").
+		Where("posts.channel_id = ?", channel.Id).
+		Count(&commentsCount)
+
+	stats.Comments = int(commentsCount)
+
+	if err = repository.DB.Create(&stats).Error; err != nil {
+		log.Printf("❌ Ошибка при создании статистики для канала %d: %v", channel.Id, err)
+	} else {
+		log.Printf("✅ Статистика обновлена для канала %d", channel.Id)
+	}
+
 	period := c.Query("period", "day")
 
 	var startDate time.Time
@@ -991,4 +1146,24 @@ func GetAllTags(c *fiber.Ctx) error {
 		Data:    tags,
 		Message: "Tags fetched successfully",
 	})
+}
+
+func ConvertChannelToResponse(channel models.Channel, file *models.File) ChannelResponse {
+	var logo *FileResponse
+	if file != nil {
+		logo = &FileResponse{
+			Id:  file.Id,
+			Url: storage.GetUrl(file.Filename)}
+
+	}
+
+	return ChannelResponse{
+		Id:          channel.Id,
+		Name:        channel.Name,
+		Description: channel.Description,
+		Category:    channel.Category,
+		OwnerId:     channel.OwnerId,
+		SubsCount:   channel.SubsCount,
+		Logo:        logo,
+	}
 }

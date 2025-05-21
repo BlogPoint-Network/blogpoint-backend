@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -181,7 +182,7 @@ func Logout(c *fiber.Ctx) error {
 // @Tags         User
 // @Security     ApiKeyAuth
 // @Produce      json
-// @Success      200  {object}  DataResponse[models.User]
+// @Success      200  {object}  DataResponse[UserResponse]
 // @Failure      401  {object}  ErrorResponse
 // @Router       /api/user [get]
 func User(c *fiber.Ctx) error {
@@ -202,8 +203,25 @@ func User(c *fiber.Ctx) error {
 
 	repository.DB.Where("id = ?", claims["iss"]).First(&user)
 
-	return c.JSON(DataResponse[models.User]{
-		Data: user,
+	var logo *models.File
+	if user.LogoId != nil {
+		if err := repository.DB.First(&logo, *user.LogoId).Error; err != nil {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Error logo does not exist",
+			})
+		}
+
+		if strings.Split(logo.MimeType, "/")[0] != "image" {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Logo image file type is not allowed",
+			})
+		}
+	}
+
+	return c.JSON(DataResponse[UserResponse]{
+		Data: ConvertUserToResponse(user, logo),
 	})
 }
 
@@ -215,7 +233,7 @@ func User(c *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Param        data  body      EditProfileRequest true "Новые данные профиля"
-// @Success      200   {object}  DataResponse[models.User]
+// @Success      200   {object}  DataResponse[UserResponse]
 // @Failure      401   {object}  ErrorResponse
 // @Router       /api/editProfile [patch]
 func EditProfile(c *fiber.Ctx) error {
@@ -241,6 +259,23 @@ func EditProfile(c *fiber.Ctx) error {
 	var user models.User
 	repository.DB.Where("id = ?", claims["iss"]).First(&user)
 
+	var logo *models.File
+	if user.LogoId != nil {
+		if err := repository.DB.First(&logo, *user.LogoId).Error; err != nil {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Error logo does not exist",
+			})
+		}
+
+		if strings.Split(logo.MimeType, "/")[0] != "image" {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Logo image file type is not allowed",
+			})
+		}
+	}
+
 	if data.Login != "" {
 		user.Login = data.Login
 	}
@@ -250,8 +285,8 @@ func EditProfile(c *fiber.Ctx) error {
 
 	repository.DB.Save(&user)
 
-	return c.JSON(DataResponse[models.User]{
-		Data:    user,
+	return c.JSON(DataResponse[UserResponse]{
+		Data:    ConvertUserToResponse(user, logo),
 		Message: "Profile edited successfully",
 	})
 }
@@ -970,4 +1005,23 @@ func DeleteUser(c *fiber.Ctx) error {
 	return c.JSON(MessageResponse{
 		Message: "User deleted successfully",
 	})
+}
+
+func ConvertUserToResponse(user models.User, file *models.File) UserResponse {
+	var logo *FileResponse
+	if file != nil {
+		logo = &FileResponse{
+			Id:  file.Id,
+			Url: storage.GetUrl(file.Filename)}
+
+	}
+
+	return UserResponse{
+		Id:         user.Id,
+		Login:      user.Login,
+		Email:      user.Email,
+		Language:   user.Language,
+		IsVerified: user.IsVerified,
+		Logo:       logo,
+	}
 }

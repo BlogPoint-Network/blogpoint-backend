@@ -21,6 +21,23 @@ definitions:
         example: oldSecret123
         type: string
     type: object
+  controllers.ChannelResponse:
+    properties:
+      category:
+        $ref: '#/definitions/models.Category'
+      description:
+        type: string
+      id:
+        type: integer
+      logo:
+        $ref: '#/definitions/controllers.FileResponse'
+      name:
+        type: string
+      ownerId:
+        type: integer
+      subsCount:
+        type: integer
+    type: object
   controllers.ChannelStatistics:
     properties:
       comments:
@@ -44,6 +61,30 @@ definitions:
       code:
         example: H4RF1G
         type: string
+    type: object
+  controllers.CommentResponse:
+    properties:
+      content:
+        type: string
+      id:
+        type: integer
+      isDeleted:
+        type: boolean
+      parentId:
+        type: integer
+      postId:
+        type: integer
+      repliesCount:
+        type: integer
+      user:
+        properties:
+          id:
+            type: integer
+          login:
+            type: string
+          logo:
+            $ref: '#/definitions/controllers.FileResponse'
+        type: object
     type: object
   controllers.CreateChannelRequest:
     properties:
@@ -105,6 +146,33 @@ definitions:
       message:
         type: string
     type: object
+  controllers.DataResponse-array_controllers_ChannelResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/controllers.ChannelResponse'
+        type: array
+      message:
+        type: string
+    type: object
+  controllers.DataResponse-array_controllers_CommentResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/controllers.CommentResponse'
+        type: array
+      message:
+        type: string
+    type: object
+  controllers.DataResponse-array_controllers_PostResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/controllers.PostResponse'
+        type: array
+      message:
+        type: string
+    type: object
   controllers.DataResponse-array_controllers_TagResponse:
     properties:
       data:
@@ -114,21 +182,10 @@ definitions:
       message:
         type: string
     type: object
-  controllers.DataResponse-array_models_Comment:
+  controllers.DataResponse-controllers_ChannelResponse:
     properties:
       data:
-        items:
-          $ref: '#/definitions/models.Comment'
-        type: array
-      message:
-        type: string
-    type: object
-  controllers.DataResponse-array_models_Post:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/models.Post'
-        type: array
+        $ref: '#/definitions/controllers.ChannelResponse'
       message:
         type: string
     type: object
@@ -139,6 +196,13 @@ definitions:
       message:
         type: string
     type: object
+  controllers.DataResponse-controllers_PostResponse:
+    properties:
+      data:
+        $ref: '#/definitions/controllers.PostResponse'
+      message:
+        type: string
+    type: object
   controllers.DataResponse-controllers_StatisticsResponse:
     properties:
       data:
@@ -146,10 +210,10 @@ definitions:
       message:
         type: string
     type: object
-  controllers.DataResponse-models_Channel:
+  controllers.DataResponse-controllers_UserResponse:
     properties:
       data:
-        $ref: '#/definitions/models.Channel'
+        $ref: '#/definitions/controllers.UserResponse'
       message:
         type: string
     type: object
@@ -157,20 +221,6 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/models.Comment'
-      message:
-        type: string
-    type: object
-  controllers.DataResponse-models_Post:
-    properties:
-      data:
-        $ref: '#/definitions/models.Post'
-      message:
-        type: string
-    type: object
-  controllers.DataResponse-models_User:
-    properties:
-      data:
-        $ref: '#/definitions/models.User'
       message:
         type: string
     type: object
@@ -194,8 +244,18 @@ definitions:
       content:
         example: Something here
         type: string
+      postFiles:
+        items:
+          type: integer
+        type: array
       postId:
         example: 1
+        type: integer
+      postImages:
+        items:
+          type: integer
+        type: array
+      previewImage:
         type: integer
       tags:
         items:
@@ -253,6 +313,39 @@ definitions:
       message:
         type: string
     type: object
+  controllers.PostResponse:
+    properties:
+      channelId:
+        type: integer
+      content:
+        type: string
+      createdAt:
+        type: string
+      dislikesCount:
+        type: integer
+      id:
+        type: integer
+      likesCount:
+        type: integer
+      postFiles:
+        items:
+          $ref: '#/definitions/controllers.FileResponse'
+        type: array
+      postImages:
+        items:
+          $ref: '#/definitions/controllers.FileResponse'
+        type: array
+      previewImage:
+        $ref: '#/definitions/controllers.FileResponse'
+      tags:
+        items:
+          $ref: '#/definitions/models.Tag'
+        type: array
+      title:
+        type: string
+      viewsCount:
+        type: integer
+    type: object
   controllers.RegisterRequest:
     properties:
       email:
@@ -308,6 +401,21 @@ definitions:
         example: Мотивация
         type: string
     type: object
+  controllers.UserResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      isVerified:
+        type: boolean
+      language:
+        type: string
+      login:
+        type: string
+      logo:
+        $ref: '#/definitions/controllers.FileResponse'
+    type: object
   models.Category:
     properties:
       color:
@@ -316,23 +424,6 @@ definitions:
         type: integer
       name:
         type: string
-    type: object
-  models.Channel:
-    properties:
-      category:
-        $ref: '#/definitions/models.Category'
-      description:
-        type: string
-      id:
-        type: integer
-      logoId:
-        type: integer
-      name:
-        type: string
-      ownerId:
-        type: integer
-      subsCount:
-        type: integer
     type: object
   models.Comment:
     properties:
@@ -355,50 +446,6 @@ definitions:
       userId:
         type: integer
     type: object
-  models.File:
-    properties:
-      filename:
-        type: string
-      id:
-        type: integer
-      mimeType:
-        type: string
-      ownerId:
-        type: integer
-    type: object
-  models.Post:
-    properties:
-      channelId:
-        type: integer
-      content:
-        type: string
-      createdAt:
-        type: string
-      dislikesCount:
-        type: integer
-      id:
-        type: integer
-      likesCount:
-        type: integer
-      postFiles:
-        items:
-          $ref: '#/definitions/models.File'
-        type: array
-      postImages:
-        items:
-          $ref: '#/definitions/models.File'
-        type: array
-      previewImage:
-        type: integer
-      tags:
-        items:
-          $ref: '#/definitions/models.Tag'
-        type: array
-      title:
-        type: string
-      viewsCount:
-        type: integer
-    type: object
   models.Tag:
     properties:
       categoryId:
@@ -407,21 +454,6 @@ definitions:
         type: integer
       name:
         type: string
-    type: object
-  models.User:
-    properties:
-      email:
-        type: string
-      id:
-        type: integer
-      isVerified:
-        type: boolean
-      language:
-        type: string
-      login:
-        type: string
-      logoId:
-        type: integer
     type: object
 host: localhost:8000
 info:
@@ -484,7 +516,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controllers.DataResponse-models_Channel'
+            $ref: '#/definitions/controllers.DataResponse-controllers_ChannelResponse'
         "400":
           description: Bad Request
           schema:
@@ -557,7 +589,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controllers.DataResponse-models_Post'
+            $ref: '#/definitions/controllers.DataResponse-controllers_PostResponse'
         "400":
           description: Bad Request
           schema:
@@ -860,7 +892,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controllers.DataResponse-models_Channel'
+            $ref: '#/definitions/controllers.DataResponse-controllers_ChannelResponse'
         "400":
           description: Bad Request
           schema:
@@ -905,7 +937,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controllers.DataResponse-models_Post'
+            $ref: '#/definitions/controllers.DataResponse-controllers_PostResponse'
         "400":
           description: Bad Request
           schema:
@@ -945,7 +977,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controllers.DataResponse-models_User'
+            $ref: '#/definitions/controllers.DataResponse-controllers_UserResponse'
         "401":
           description: Unauthorized
           schema:
@@ -1006,7 +1038,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controllers.DataResponse-models_Channel'
+            $ref: '#/definitions/controllers.DataResponse-controllers_ChannelResponse'
         "400":
           description: Bad Request
           schema:
@@ -1061,35 +1093,6 @@ paths:
       summary: Получить статистику канала
       tags:
       - Channel
-  /api/getChildComments/{id}:
-    get:
-      description: Получает ответы на комментарий (дочерние комментарии) по parentId
-      parameters:
-      - description: Id родительского комментария
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/controllers.DataResponse-array_models_Comment'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/controllers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/controllers.ErrorResponse'
-      summary: Получение ответов на комментарий
-      tags:
-      - Comment
   /api/getPopularChannels:
     get:
       description: Возвращает список каналов, отсортированных по количеству подписчиков
@@ -1101,7 +1104,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/controllers.DataResponse-models_Channel'
+              $ref: '#/definitions/controllers.DataResponse-array_controllers_ChannelResponse'
             type: array
         "500":
           description: Internal Server Error
@@ -1127,7 +1130,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controllers.DataResponse-models_Post'
+            $ref: '#/definitions/controllers.DataResponse-controllers_PostResponse'
         "400":
           description: Bad Request
           schema:
@@ -1139,6 +1142,48 @@ paths:
       summary: Получение поста
       tags:
       - Post
+  /api/getPostComments:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает комментарии к посту, поддерживает пагинацию и фильтрацию
+        по parentId
+      parameters:
+      - description: Id поста
+        in: query
+        name: postId
+        required: true
+        type: integer
+      - description: Id родительского комментария (для подкомментариев)
+        in: query
+        name: parentId
+        type: integer
+      - description: Смещение (для пагинации)
+        in: query
+        name: offset
+        type: integer
+      - description: Количество комментариев на странице
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-array_controllers_CommentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Получение комментариев
+      tags:
+      - Comment
   /api/getPosts/{channelId}:
     get:
       consumes:
@@ -1161,7 +1206,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/controllers.DataResponse-array_models_Post'
+              $ref: '#/definitions/controllers.DataResponse-array_controllers_PostResponse'
             type: array
         "400":
           description: Bad Request
@@ -1184,7 +1229,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/controllers.DataResponse-models_Channel'
+              $ref: '#/definitions/controllers.DataResponse-array_controllers_ChannelResponse'
             type: array
         "401":
           description: Unauthorized
@@ -1209,7 +1254,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/controllers.DataResponse-models_Channel'
+              $ref: '#/definitions/controllers.DataResponse-array_controllers_ChannelResponse'
             type: array
         "401":
           description: Unauthorized
@@ -1654,7 +1699,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controllers.DataResponse-models_User'
+            $ref: '#/definitions/controllers.DataResponse-controllers_UserResponse'
         "401":
           description: Unauthorized
           schema:
