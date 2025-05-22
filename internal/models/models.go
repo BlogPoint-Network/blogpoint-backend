@@ -78,7 +78,6 @@ type Comment struct {
 	Content   string    `json:"content"`
 	IsDeleted bool      `json:"isDeleted"`
 	CreatedAt time.Time `json:"createdAt"`
-	Replies   []Comment `json:"replies,omitempty" gorm:"-"`
 }
 
 type Subscription struct {

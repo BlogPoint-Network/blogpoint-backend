@@ -67,8 +67,6 @@ func StartStatisticsTask() {
 
 				if err := repository.DB.Create(&stats).Error; err != nil {
 					log.Printf("❌ Ошибка при создании статистики для канала %d: %v", ch.Id, err)
-				} else {
-					log.Printf("✅ Статистика обновлена для канала %d", ch.Id)
 				}
 			}
 			time.Sleep(24 * time.Hour)

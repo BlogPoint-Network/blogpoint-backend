@@ -439,10 +439,6 @@ definitions:
         type: integer
       postId:
         type: integer
-      replies:
-        items:
-          $ref: '#/definitions/models.Comment'
-        type: array
       userId:
         type: integer
     type: object
@@ -1217,6 +1213,35 @@ paths:
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
       summary: Get posts
+      tags:
+      - Post
+  /api/getRecommendedPosts:
+    get:
+      consumes:
+      - application/json
+      description: 'Получает список рекомендуемых постов за последнюю неделю, сортируя
+        по формуле: views + likes*3 - dislikes*2 + comments*2'
+      parameters:
+      - description: Номер страницы (по умолчанию 1)
+        in: query
+        name: page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-array_controllers_PostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: Рекомендуемые посты
       tags:
       - Post
   /api/getUserChannels:

@@ -52,6 +52,7 @@ func Setup(app *fiber.App, emailSender mail.EmailSender) {
 	app.Delete("/api/deletePost/:id", controllers.DeletePost)
 	app.Get("/api/getPost/:id", controllers.GetPost)
 	app.Get("/api/getPosts/:channelId", controllers.GetPosts)
+	app.Get("/api/getRecommendedPosts", controllers.GetRecommendedPosts)
 	app.Post("/api/setReaction", controllers.SetReaction)
 
 	app.Post("/api/createComment", controllers.CreateComment)

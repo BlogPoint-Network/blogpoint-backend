@@ -1188,6 +1188,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/getRecommendedPosts": {
+            "get": {
+                "description": "Получает список рекомендуемых постов за последнюю неделю, сортируя по формуле: views + likes*3 - dislikes*2 + comments*2",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Post"
+                ],
+                "summary": "Рекомендуемые посты",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Номер страницы (по умолчанию 1)",
+                        "name": "page",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-array_controllers_PostResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/getUserChannels": {
             "get": {
                 "security": [
@@ -2661,12 +2704,6 @@ const docTemplate = `{
                 },
                 "postId": {
                     "type": "integer"
-                },
-                "replies": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.Comment"
-                    }
                 },
                 "userId": {
                     "type": "integer"

@@ -572,6 +572,98 @@ func GetPosts(c *fiber.Ctx) error {
 	})
 }
 
+// GetRecommendedPosts возвращает список рекомендуемых постов по кастомной формуле
+// @Summary      Рекомендуемые посты
+// @Description  Получает список рекомендуемых постов за последнюю неделю, сортируя по формуле: views + likes*3 - dislikes*2 + comments*2
+// @Tags         Post
+// @Accept       json
+// @Produce      json
+// @Param        page  query     int false "Номер страницы (по умолчанию 1)"
+// @Success      200   {object}  DataResponse[[]PostResponse]
+// @Failure      400   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Router       /api/getRecommendedPosts [get]
+func GetRecommendedPosts(c *fiber.Ctx) error {
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Message: "Invalid page value",
+		})
+	}
+
+	offset := (page - 1) * 10
+
+	type PostWithRating struct {
+		Id            uint
+		CommentsCount int `json:"comments_count"`
+		Rating        int `json:"-"`
+	}
+
+	var postInfos []PostWithRating
+
+	subQuery := repository.DB.
+		Table("comments").
+		Select("post_id, COUNT(*) as comments_count").
+		Group("post_id")
+
+	if err := repository.DB.
+		Table("posts").
+		Select(`posts.id, 
+		COALESCE(c.comments_count, 0) as comments_count,
+		(views_count + likes_count * 3 - dislikes_count * 2 + COALESCE(c.comments_count, 0) * 2) as rating`).
+		Joins("LEFT JOIN (?) as c ON posts.id = c.post_id", subQuery).
+		Where("posts.created_at >= NOW() - INTERVAL '7 days'").
+		Order("rating DESC").
+		Limit(10).Offset(offset).
+		Scan(&postInfos).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to fetch popular post IDs",
+		})
+	}
+
+	ids := make([]uint, len(postInfos))
+	indexMap := make(map[uint]int, len(postInfos))
+	for i, p := range postInfos {
+		ids[i] = p.Id
+		indexMap[p.Id] = i
+	}
+
+	var posts []models.Post
+	if err := repository.DB.
+		Preload("Tags").
+		Preload("PostImages").
+		Preload("PostFiles").
+		Where("id IN ?", ids).
+		Find(&posts).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to fetch posts",
+		})
+	}
+
+	sortedPosts := make([]models.Post, len(posts))
+	for _, post := range posts {
+		if idx, ok := indexMap[post.Id]; ok {
+			sortedPosts[idx] = post
+		}
+	}
+
+	postsResponse := make([]PostResponse, 0, len(sortedPosts))
+	for _, post := range sortedPosts {
+		var preview *models.File
+		if post.PreviewImageId != nil {
+			var file models.File
+			if err := repository.DB.First(&file, *post.PreviewImageId).Error; err == nil {
+				preview = &file
+			}
+		}
+		postsResponse = append(postsResponse, ConvertPostToResponse(post, preview))
+	}
+
+	return c.JSON(DataResponse[[]PostResponse]{
+		Data: postsResponse,
+	})
+}
+
 // SetReaction устанавливает реакцию пользователя на пост
 // @Summary      Set reaction to post
 // @Description  Устанавливает реакцию (лайк/дизлайк) пользователя на пост. Повторное нажатие удаляет реакцию
