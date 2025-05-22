@@ -7,7 +7,9 @@ type User struct {
 	Login      string `json:"login"`
 	Email      string `json:"email"`
 	Password   []byte `json:"-"`
+	Language   string `json:"language"`
 	IsVerified bool   `json:"isVerified"`
+	LogoId     *uint  `json:"logoId"`
 }
 
 type VerificationCode struct {
@@ -30,14 +32,18 @@ type Channel struct {
 }
 
 type Post struct {
-	Id            uint   `json:"id"`
-	ChannelId     uint   `json:"channelId"`
-	Title         string `json:"title"`
-	Content       string `json:"content"`
-	LikesCount    uint   `json:"likesCount"`
-	DislikesCount uint   `json:"dislikesCount"`
-	ViewsCount    uint   `json:"viewsCount"`
-	Tags          []Tag  `gorm:"many2many:post_tags;" json:"tags"`
+	Id             uint      `json:"id"`
+	ChannelId      uint      `json:"channelId"`
+	PreviewImageId *uint     `json:"previewImage"`
+	Title          string    `json:"title"`
+	Content        string    `json:"content"`
+	LikesCount     uint      `json:"likesCount"`
+	DislikesCount  uint      `json:"dislikesCount"`
+	ViewsCount     uint      `json:"viewsCount"`
+	PostImages     []File    `gorm:"many2many:post_images;" json:"postImages"`
+	PostFiles      []File    `gorm:"many2many:post_files;" json:"postFiles"`
+	Tags           []Tag     `gorm:"many2many:post_tags;" json:"tags"`
+	CreatedAt      time.Time `json:"createdAt"`
 }
 
 type Category struct {
@@ -50,7 +56,6 @@ type Tag struct {
 	Id         uint   `json:"id"`
 	CategoryId uint   `json:"categoryId"`
 	Name       string `json:"name"`
-	Color      string `json:"color"`
 }
 
 type PostTag struct {
@@ -65,6 +70,16 @@ type PostReaction struct {
 	Reaction bool `json:"reaction"`
 }
 
+type Comment struct {
+	Id        uint      `json:"id"`
+	ParentId  *uint     `json:"parentId,omitempty"`
+	PostId    uint      `json:"postId"`
+	UserId    uint      `json:"userId"`
+	Content   string    `json:"content"`
+	IsDeleted bool      `json:"isDeleted"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 type Subscription struct {
 	UserId    uint `json:"userId"`
 	ChannelId uint `json:"channelId"`
@@ -72,7 +87,18 @@ type Subscription struct {
 
 type File struct {
 	Id       uint   `json:"id"`
-	UserId   uint   `json:"channelId"`
-	Filename string `json:"title"`
-	MimeType string `json:"MimeType"`
+	OwnerId  uint   `json:"ownerId"`
+	Filename string `json:"filename"`
+	MimeType string `json:"mimeType"`
+}
+
+type ChannelStatistics struct {
+	Id        uint `json:"id"`
+	ChannelId uint `json:"ChannelId"`
+	Views     int  `json:"Views"`
+	Likes     int  `json:"Likes"`
+	Dislikes  int  `json:"Dislikes"`
+	Posts     int  `json:"Posts"`
+	Comments  int  `json:"Comments"`
+	Date      time.Time
 }

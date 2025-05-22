@@ -18,6 +18,8 @@ func Connect() {
 	dbname := os.Getenv("DB_NAME")
 	port := os.Getenv("DB_PORT")
 
+	fmt.Println(port)
+
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", host, user, password, dbname, port)
 
 	fmt.Println(dsn)

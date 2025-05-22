@@ -10,7 +10,7 @@ INSERT INTO roles (name, description) VALUES
 
 CREATE TABLE files (
     id SERIAL PRIMARY KEY,
-    filename varchar(200) UNIQUE NOT NULL,
+    filename varchar(100) UNIQUE NOT NULL,
     mime_type varchar(30) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -21,13 +21,14 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     login VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
+    language VARCHAR(2) NOT NULL,
     is_verified BOOLEAN DEFAULT FALSE,
     logo_id INT REFERENCES files(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE files ADD COLUMN user_id INT;
-ALTER TABLE files ADD CONSTRAINT fk_files_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE files ADD COLUMN owner_id INT;
+ALTER TABLE files ADD CONSTRAINT fk_files_user FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE;
 
 CREATE TABLE verification_codes (
     id SERIAL PRIMARY KEY,
@@ -48,8 +49,7 @@ CREATE TABLE categories (
 CREATE TABLE tags (
     id SERIAL PRIMARY KEY,
     category_id INT REFERENCES categories(id) ON DELETE CASCADE,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    color VARCHAR(7) NOT NULL
+    name VARCHAR(100) UNIQUE NOT NULL
 );
 
 CREATE TABLE channels (
@@ -63,6 +63,16 @@ CREATE TABLE channels (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE channel_statistics (
+    id SERIAL PRIMARY KEY,
+    channel_id INT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    views INT DEFAULT 0,
+    likes INT DEFAULT 0,
+    dislikes INT DEFAULT 0,
+    posts INT DEFAULT 0,
+    comments INT DEFAULT 0,
+    date DATE NOT NULL
+);
 
 CREATE TABLE subscriptions (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
@@ -81,12 +91,25 @@ CREATE TABLE channel_moderators (
 CREATE TABLE posts (
     id SERIAL PRIMARY KEY,
     channel_id INT REFERENCES channels(id) ON DELETE CASCADE,
+    preview_image_id INT REFERENCES files(id) ON DELETE SET NULL,
     title VARCHAR(200) NOT NULL,
     content TEXT NOT NULL,
     likes_count INT DEFAULT 0,
     dislikes_count INT DEFAULT 0,
     views_count INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE post_images (
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
+    file_id INT REFERENCES files(id) ON DELETE CASCADE,
+    PRIMARY KEY (post_id, file_id)
+);
+
+CREATE TABLE post_files (
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE,
+    file_id INT REFERENCES files(id) ON DELETE CASCADE,
+    PRIMARY KEY (post_id, file_id)
 );
 
 CREATE TABLE post_tags (
@@ -109,8 +132,11 @@ CREATE TABLE comments (
     post_id INT REFERENCES posts(id) ON DELETE CASCADE,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
+    is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE comments ADD COLUMN parent_id INT REFERENCES comments(id) ON DELETE CASCADE;
 
 CREATE TYPE target AS ENUM ('channel', 'post', 'comment');
 CREATE TYPE status AS ENUM ('open', 'in progress', 'close');

@@ -26,20 +26,20 @@ func InitMinio() {
 			Secure: false, // false, если MinIO работает без SSL
 		})
 	if err != nil {
-		log.Fatalf("Ошибка инициализации MinIO: %v", err)
+		log.Fatalf("MinIO initialization error: %v", err)
 	}
 
 	// Проверяем существование бакета
 	exists, err := MinioClient.BucketExists(context.Background(), bucketName)
 	if err != nil {
-		log.Fatalf("Ошибка проверки бакета: %v", err)
+		log.Fatalf("Bucket check error: %v", err)
 	}
 
 	// Создаем бакет, если его нет
 	if !exists {
 		err = MinioClient.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{})
 		if err != nil {
-			log.Fatalf("Ошибка создания бакета: %v", err)
+			log.Fatalf("Error creating bucket: %v", err)
 		}
 		fmt.Printf("Бакет %s создан\n", bucketName)
 
@@ -59,12 +59,12 @@ func InitMinio() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		fmt.Printf("Бакет %s установлен публичным\n", bucketName)
+		fmt.Printf("Bucket %s is set to public\n", bucketName)
 	}
 }
 
-// UploadFile загружает файл в MinIO
-func UploadFile(ctx context.Context, filename string, src io.Reader, fileSize int64, mimeType string) (string, error) {
+// UploadToMinIO загружает файл в MinIO
+func UploadToMinIO(ctx context.Context, filename string, src io.Reader, fileSize int64, mimeType string) error {
 	_, err := MinioClient.PutObject(
 		ctx,
 		bucketName,
@@ -74,28 +74,30 @@ func UploadFile(ctx context.Context, filename string, src io.Reader, fileSize in
 		minio.PutObjectOptions{ContentType: mimeType},
 	)
 	if err != nil {
-		return "", fmt.Errorf("ошибка загрузки файла: %w", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "File upload error")
 	}
 
-	// Генерируем ссылку на файл
-	fileURL := os.Getenv("MINIO_PUBLIC_ENDPOINT") + "/" + bucketName + "/" + filename
-
-	fmt.Println(fileURL)
-
-	return fileURL, nil
+	return nil
 }
 
-// DeleteFile удаляет файл из MinIO
-func DeleteFile(ctx context.Context, filename string) error {
+// DeleteFromMinIO удаляет файл из MinIO
+func DeleteFromMinIO(ctx context.Context, filename string) error {
 	// Проверяем, существует ли файл в хранилище
 	_, err := MinioClient.StatObject(ctx, bucketName, filename, minio.StatObjectOptions{})
 	if err != nil {
 		// Если ошибка содержит "NoSuchKey", файл не найден
 		var minioErr minio.ErrorResponse
 		if errors.As(err, &minioErr) && minioErr.Code == "NoSuchKey" {
-			return fiber.NewError(fiber.StatusNotFound, "Файл не найден")
+			return fiber.NewError(fiber.StatusNotFound, "File not found")
 		}
-		return fiber.NewError(fiber.StatusInternalServerError, "Ошибка при проверке существования файла")
+		return fiber.NewError(fiber.StatusInternalServerError, "Error checking file existence")
 	}
-	return MinioClient.RemoveObject(ctx, bucketName, filename, minio.RemoveObjectOptions{})
+	if err = MinioClient.RemoveObject(ctx, bucketName, filename, minio.RemoveObjectOptions{}); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to delete file from storage")
+	}
+	return nil
+}
+
+func GetUrl(filename string) string {
+	return os.Getenv("MINIO_PUBLIC_ENDPOINT") + "/" + bucketName + "/" + filename
 }

@@ -62,6 +62,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -99,7 +105,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/controllers.DataResponse-models_Channel"
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_ChannelResponse"
                         }
                     },
                     "400": {
@@ -110,6 +116,69 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/createComment": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Создает новый комментарий к посту или ответ на существующий комментарий",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Comment"
+                ],
+                "summary": "Создание комментария",
+                "parameters": [
+                    {
+                        "description": "Данные комментария",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.CreateCommentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-models_Comment"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -150,7 +219,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/controllers.DataResponse-models_Post"
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_PostResponse"
                         }
                     },
                     "400": {
@@ -253,27 +322,27 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/deleteFile": {
+        "/api/deleteChannelLogo/{id}": {
             "delete": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Удаляет файл по имени",
+                "description": "Удаляет текущий логотип канала и очищает поле logo_id",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "File"
+                    "Channel"
                 ],
-                "summary": "Удаление файла",
+                "summary": "Удаление логотипа канала",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Имя файла для удаления",
-                        "name": "filename",
-                        "in": "query",
+                        "type": "integer",
+                        "description": "Id канала",
+                        "name": "id",
+                        "in": "path",
                         "required": true
                     }
                 ],
@@ -286,6 +355,140 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/deleteComment/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Удаляет комментарий, если нет ответов — полностью, иначе помечает как удаленный",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Comment"
+                ],
+                "summary": "Удаление комментария",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Id комментария",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/deleteFile/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Удаляет файл по id",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "File"
+                ],
+                "summary": "Удаление файла",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Id файла для удаления",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -411,6 +614,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/deleteUserLogo": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Удаляет текущее лого пользователя и очищает поле logo_id",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Удаление лого пользователя",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/editChannel": {
             "patch": {
                 "security": [
@@ -444,7 +693,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/controllers.DataResponse-models_Channel"
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_ChannelResponse"
                         }
                     },
                     "400": {
@@ -481,7 +730,7 @@ const docTemplate = `{
             }
         },
         "/api/editPost": {
-            "put": {
+            "patch": {
                 "security": [
                     {
                         "ApiKeyAuth": []
@@ -513,7 +762,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/controllers.DataResponse-models_Post"
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_PostResponse"
                         }
                     },
                     "400": {
@@ -576,11 +825,63 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/controllers.DataResponse-models_User"
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_UserResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/getAllCategories": {
+            "get": {
+                "description": "Получение всех доступных категорий",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tags and categories"
+                ],
+                "summary": "Список категорий",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-array_controllers_CategoryResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/getAllTags": {
+            "get": {
+                "description": "Получение всех тегов с цветом соответствующей категории",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tags and categories"
+                ],
+                "summary": "Список тегов",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-array_controllers_TagResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -614,7 +915,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/controllers.DataResponse-models_Channel"
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_ChannelResponse"
                         }
                     },
                     "400": {
@@ -638,6 +939,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/getChannelStatistics/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Возвращает статистику канала за указанный период",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Channel"
+                ],
+                "summary": "Получить статистику канала",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Id канала",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Период получения статистики (по умолчанию ",
+                        "name": "period",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_StatisticsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/getPopularChannels": {
             "get": {
                 "description": "Возвращает список каналов, отсортированных по количеству подписчиков по убыванию",
@@ -654,7 +1016,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/controllers.DataResponse-models_Channel"
+                                "$ref": "#/definitions/controllers.DataResponse-array_controllers_ChannelResponse"
                             }
                         }
                     },
@@ -693,7 +1055,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/controllers.DataResponse-models_Post"
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_PostResponse"
                         }
                     },
                     "400": {
@@ -704,6 +1066,68 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/getPostComments": {
+            "get": {
+                "description": "Возвращает комментарии к посту, поддерживает пагинацию и фильтрацию по parentId",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Comment"
+                ],
+                "summary": "Получение комментариев",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Id поста",
+                        "name": "postId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Id родительского комментария (для подкомментариев)",
+                        "name": "parentId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Смещение (для пагинации)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Количество комментариев на странице",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-array_controllers_CommentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -745,8 +1169,51 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/controllers.DataResponse-array_models_Post"
+                                "$ref": "#/definitions/controllers.DataResponse-array_controllers_PostResponse"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/getRecommendedPosts": {
+            "get": {
+                "description": "Получает список рекомендуемых постов за последнюю неделю, сортируя по формуле: views + likes*3 - dislikes*2 + comments*2",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Post"
+                ],
+                "summary": "Рекомендуемые посты",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Номер страницы (по умолчанию 1)",
+                        "name": "page",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-array_controllers_PostResponse"
                         }
                     },
                     "400": {
@@ -785,7 +1252,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/controllers.DataResponse-models_Channel"
+                                "$ref": "#/definitions/controllers.DataResponse-array_controllers_ChannelResponse"
                             }
                         }
                     },
@@ -825,7 +1292,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/controllers.DataResponse-models_Channel"
+                                "$ref": "#/definitions/controllers.DataResponse-array_controllers_ChannelResponse"
                             }
                         }
                     },
@@ -837,6 +1304,63 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/languageUpdate": {
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Изменение языка интерфейса пользователя",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Смена языка интерфейса",
+                "parameters": [
+                    {
+                        "description": "Новый язык интерфейса",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.LanguageUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -872,7 +1396,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/controllers.DataResponse-models_User"
+                            "$ref": "#/definitions/controllers.MessageResponse"
                         }
                     },
                     "400": {
@@ -885,6 +1409,26 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "description": "Удаляет JWT cookie и завершает сессию",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Выход из аккаунта",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.MessageResponse"
                         }
                     }
                 }
@@ -1217,7 +1761,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "ID канала",
+                        "description": "Id канала",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1251,6 +1795,68 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/uploadChannelLogo/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Загружает изображение и устанавливает его как логотип канала",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Channel"
+                ],
+                "summary": "Загрузка логотипа канала",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Id канала",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Файл изображения",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_FileResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/uploadFile": {
             "post": {
                 "security": [
@@ -1258,7 +1864,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Загружает файл и возвращает его URL и уникальное имя",
+                "description": "Загружает файл и возвращает его Id и URL",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1270,6 +1876,12 @@ const docTemplate = `{
                 ],
                 "summary": "Загрузка файла",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Тип файла",
+                        "name": "type",
+                        "in": "query"
+                    },
                     {
                         "type": "file",
                         "description": "Файл для загрузки",
@@ -1287,6 +1899,61 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/uploadUserLogo": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Загружает изображение и устанавливает его как лого текущего авторизованного пользователя.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Загрузка лого пользователя",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Файл изображения",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_FileResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -1319,7 +1986,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/controllers.DataResponse-models_User"
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_UserResponse"
                         }
                     },
                     "401": {
@@ -1384,6 +2051,23 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "controllers.CategoryResponse": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string",
+                    "example": "#FF9800"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Личный блог"
+                }
+            }
+        },
         "controllers.ChangePasswordRequest": {
             "type": "object",
             "properties": {
@@ -1397,12 +2081,100 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.ChannelResponse": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "$ref": "#/definitions/models.Category"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "logo": {
+                    "$ref": "#/definitions/controllers.FileResponse"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ownerId": {
+                    "type": "integer"
+                },
+                "subsCount": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.ChannelStatistics": {
+            "type": "object",
+            "properties": {
+                "comments": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "dislikes": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "likes": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "posts": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "views": {
+                    "type": "integer",
+                    "example": 12
+                }
+            }
+        },
         "controllers.CodeRequest": {
             "type": "object",
             "properties": {
                 "code": {
                     "type": "string",
                     "example": "H4RF1G"
+                }
+            }
+        },
+        "controllers.CommentResponse": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isDeleted": {
+                    "type": "boolean"
+                },
+                "parentId": {
+                    "type": "integer"
+                },
+                "postId": {
+                    "type": "integer"
+                },
+                "repliesCount": {
+                    "type": "integer"
+                },
+                "user": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "login": {
+                            "type": "string"
+                        },
+                        "logo": {
+                            "$ref": "#/definitions/controllers.FileResponse"
+                        }
+                    }
                 }
             }
         },
@@ -1423,6 +2195,23 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.CreateCommentRequest": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "example": "1"
+                },
+                "parentId": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "postId": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
         "controllers.CreatePostRequest": {
             "type": "object",
             "properties": {
@@ -1434,9 +2223,27 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Something here"
                 },
+                "postFiles": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "postImages": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "previewImageId": {
+                    "type": "integer",
+                    "example": 5
+                },
                 "tags": {
-                    "type": "string",
-                    "example": "Новости, Журналистика, Статьи"
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "title": {
                     "type": "string",
@@ -1444,13 +2251,13 @@ const docTemplate = `{
                 }
             }
         },
-        "controllers.DataResponse-array_models_Post": {
+        "controllers.DataResponse-array_controllers_CategoryResponse": {
             "type": "object",
             "properties": {
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.Post"
+                        "$ref": "#/definitions/controllers.CategoryResponse"
                     }
                 },
                 "message": {
@@ -1458,33 +2265,122 @@ const docTemplate = `{
                 }
             }
         },
-        "controllers.DataResponse-models_Channel": {
+        "controllers.DataResponse-array_controllers_ChannelResponse": {
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/models.Channel"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.ChannelResponse"
+                    }
                 },
                 "message": {
                     "type": "string"
                 }
             }
         },
-        "controllers.DataResponse-models_Post": {
+        "controllers.DataResponse-array_controllers_CommentResponse": {
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/models.Post"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.CommentResponse"
+                    }
                 },
                 "message": {
                     "type": "string"
                 }
             }
         },
-        "controllers.DataResponse-models_User": {
+        "controllers.DataResponse-array_controllers_PostResponse": {
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/models.User"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.PostResponse"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.DataResponse-array_controllers_TagResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.TagResponse"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.DataResponse-controllers_ChannelResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/controllers.ChannelResponse"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.DataResponse-controllers_FileResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/controllers.FileResponse"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.DataResponse-controllers_PostResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/controllers.PostResponse"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.DataResponse-controllers_StatisticsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/controllers.StatisticsResponse"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.DataResponse-controllers_UserResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/controllers.UserResponse"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.DataResponse-models_Comment": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.Comment"
                 },
                 "message": {
                     "type": "string"
@@ -1519,13 +2415,30 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Something here"
                 },
+                "postFiles": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "postId": {
                     "type": "integer",
                     "example": 1
                 },
+                "postImages": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "previewImage": {
+                    "type": "integer"
+                },
                 "tags": {
-                    "type": "string",
-                    "example": "Новости, Журналистика, Статьи"
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "title": {
                     "type": "string",
@@ -1567,11 +2480,20 @@ const docTemplate = `{
         "controllers.FileResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "id": {
+                    "type": "integer"
                 },
                 "url": {
                     "type": "string"
+                }
+            }
+        },
+        "controllers.LanguageUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "language": {
+                    "type": "string",
+                    "example": "ru"
                 }
             }
         },
@@ -1596,12 +2518,66 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.PostResponse": {
+            "type": "object",
+            "properties": {
+                "channelId": {
+                    "type": "integer"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "dislikesCount": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "likesCount": {
+                    "type": "integer"
+                },
+                "postFiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.FileResponse"
+                    }
+                },
+                "postImages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.FileResponse"
+                    }
+                },
+                "previewImage": {
+                    "$ref": "#/definitions/controllers.FileResponse"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Tag"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                },
+                "viewsCount": {
+                    "type": "integer"
+                }
+            }
+        },
         "controllers.RegisterRequest": {
             "type": "object",
             "properties": {
                 "email": {
                     "type": "string",
                     "example": "user@example.com"
+                },
+                "language": {
+                    "type": "string",
+                    "example": "ru"
                 },
                 "login": {
                     "type": "string",
@@ -1639,6 +2615,61 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.StatisticsResponse": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "$ref": "#/definitions/controllers.ChannelStatistics"
+                },
+                "delta": {
+                    "$ref": "#/definitions/controllers.ChannelStatistics"
+                }
+            }
+        },
+        "controllers.TagResponse": {
+            "type": "object",
+            "properties": {
+                "categoryId": {
+                    "type": "integer",
+                    "example": 11
+                },
+                "color": {
+                    "type": "string",
+                    "example": "#FF9800"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Мотивация"
+                }
+            }
+        },
+        "controllers.UserResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isVerified": {
+                    "type": "boolean"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "logo": {
+                    "$ref": "#/definitions/controllers.FileResponse"
+                }
+            }
+        },
         "models.Category": {
             "type": "object",
             "properties": {
@@ -1653,60 +2684,28 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Channel": {
+        "models.Comment": {
             "type": "object",
             "properties": {
-                "category": {
-                    "$ref": "#/definitions/models.Category"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "logoId": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "ownerId": {
-                    "type": "integer"
-                },
-                "subsCount": {
-                    "type": "integer"
-                }
-            }
-        },
-        "models.Post": {
-            "type": "object",
-            "properties": {
-                "channelId": {
-                    "type": "integer"
-                },
                 "content": {
                     "type": "string"
                 },
-                "dislikesCount": {
-                    "type": "integer"
+                "createdAt": {
+                    "type": "string"
                 },
                 "id": {
                     "type": "integer"
                 },
-                "likesCount": {
+                "isDeleted": {
+                    "type": "boolean"
+                },
+                "parentId": {
                     "type": "integer"
                 },
-                "tags": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.Tag"
-                    }
+                "postId": {
+                    "type": "integer"
                 },
-                "title": {
-                    "type": "string"
-                },
-                "viewsCount": {
+                "userId": {
                     "type": "integer"
                 }
             }
@@ -1717,30 +2716,10 @@ const docTemplate = `{
                 "categoryId": {
                     "type": "integer"
                 },
-                "color": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "integer"
                 },
                 "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.User": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "isVerified": {
-                    "type": "boolean"
-                },
-                "login": {
                     "type": "string"
                 }
             }
