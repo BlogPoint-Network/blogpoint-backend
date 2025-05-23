@@ -71,7 +71,7 @@ func CreatePost(c *fiber.Ctx) error {
 	}
 
 	var channel models.Channel
-	if result := repository.DB.First(&channel, data.ChannelId); result.Error != nil {
+	if result := repository.DB.Preload("Category").First(&channel, data.ChannelId); result.Error != nil {
 		c.Status(fiber.StatusNotFound)
 		return c.JSON(ErrorResponse{
 			Message: "Channel not found",
@@ -180,12 +180,35 @@ func CreatePost(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := repository.DB.Preload("Tags").First(&post, post.Id).Error; err != nil {
+	if err := repository.DB.First(&post, post.Id).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to load post with tags"})
 	}
 
+	var channelLogo *models.File
+	if channel.LogoId != nil {
+		if err := repository.DB.First(&channelLogo, *channel.LogoId).Error; err != nil {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Error logo does not exist"})
+		}
+		if strings.Split(channelLogo.MimeType, "/")[0] != "image" {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Logo image file type is not allowed"})
+		}
+	}
+
+	channelResponse := ConvertChannelToResponse(channel, channelLogo)
+
+	tagsResponse, err := GetTagResponsesForPost(post.Id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to fetch tags for post",
+		})
+	}
+
 	return c.JSON(DataResponse[PostResponse]{
-		Data:    ConvertPostToResponse(post, previewFile),
+		Data:    ConvertPostToResponse(post, previewFile, channelResponse, tagsResponse),
 		Message: "Post created successfully",
 	})
 }
@@ -254,7 +277,7 @@ func EditPost(c *fiber.Ctx) error {
 	}
 
 	var channel models.Channel
-	if result := repository.DB.First(&channel, post.ChannelId); result.Error != nil {
+	if result := repository.DB.Preload("Category").First(&channel, post.ChannelId); result.Error != nil {
 		c.Status(fiber.StatusInternalServerError)
 		return c.JSON(ErrorResponse{
 			Message: "Channel not found",
@@ -359,12 +382,35 @@ func EditPost(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := repository.DB.Preload("Tags").First(&post, data.PostId).Error; err != nil {
+	if err := repository.DB.First(&post, data.PostId).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to load post with tags"})
 	}
 
+	var channelLogo *models.File
+	if channel.LogoId != nil {
+		if err := repository.DB.First(&channelLogo, *channel.LogoId).Error; err != nil {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Error logo does not exist"})
+		}
+		if strings.Split(channelLogo.MimeType, "/")[0] != "image" {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Logo image file type is not allowed"})
+		}
+	}
+
+	channelResponse := ConvertChannelToResponse(channel, channelLogo)
+
+	tagsResponse, err := GetTagResponsesForPost(post.Id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to fetch tags for post",
+		})
+	}
+
 	return c.JSON(DataResponse[PostResponse]{
-		Data:    ConvertPostToResponse(post, previewFile),
+		Data:    ConvertPostToResponse(post, previewFile, channelResponse, tagsResponse),
 		Message: "Post updated successfully",
 	})
 }
@@ -428,7 +474,7 @@ func DeletePost(c *fiber.Ctx) error {
 	}
 
 	var channel models.Channel
-	if result := repository.DB.First(&channel, post.ChannelId); result.Error != nil {
+	if result := repository.DB.Preload("Category").First(&channel, post.ChannelId); result.Error != nil {
 		c.Status(fiber.StatusInternalServerError)
 		return c.JSON(ErrorResponse{
 			Message: "Channel not found",
@@ -475,7 +521,7 @@ func GetPost(c *fiber.Ctx) error {
 	}
 
 	var post models.Post
-	if err := repository.DB.Preload("Tags").Preload("PostImages").Preload("PostFiles").
+	if err := repository.DB.Preload("PostImages").Preload("PostFiles").
 		First(&post, Id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -484,6 +530,43 @@ func GetPost(c *fiber.Ctx) error {
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Message: "Failed to fetch post",
+		})
+	}
+
+	var channel models.Channel
+	if err := repository.DB.Preload("Category").First(&channel, post.ChannelId).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.Status(fiber.StatusNotFound)
+			return c.JSON(fiber.Map{
+				"message": "Channel not found",
+			})
+		}
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(ErrorResponse{
+			Message: "Failed to retrieve channel",
+		})
+	}
+
+	var channelLogo *models.File
+	if channel.LogoId != nil {
+		if err := repository.DB.First(&channelLogo, *channel.LogoId).Error; err != nil {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Error logo does not exist"})
+		}
+		if strings.Split(channelLogo.MimeType, "/")[0] != "image" {
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(ErrorResponse{
+				Message: "Logo image file type is not allowed"})
+		}
+	}
+
+	channelResponse := ConvertChannelToResponse(channel, channelLogo)
+
+	tags, err := GetTagResponsesForPost(post.Id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to fetch tags for post",
 		})
 	}
 
@@ -502,7 +585,7 @@ func GetPost(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(DataResponse[PostResponse]{
-		Data: ConvertPostToResponse(post, previewFile),
+		Data: ConvertPostToResponse(post, previewFile, channelResponse, tags),
 	})
 }
 
@@ -537,7 +620,7 @@ func GetPosts(c *fiber.Ctx) error {
 	offset := (page - 1) * 10
 
 	var posts []models.Post
-	if err := repository.DB.Preload("Tags").Preload("PostImages").Preload("PostFiles").
+	if err := repository.DB.Preload("PostImages").Preload("PostFiles").
 		Where("channel_id = ?", channelId).Limit(10).Offset(offset).Find(&posts).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Message: "Failed to fetch posts",
@@ -564,7 +647,44 @@ func GetPosts(c *fiber.Ctx) error {
 			}
 		}
 
-		postsResponse = append(postsResponse, ConvertPostToResponse(post, preview))
+		var channel models.Channel
+		if err := repository.DB.Preload("Category").First(&channel, channelId).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.Status(fiber.StatusNotFound)
+				return c.JSON(fiber.Map{
+					"message": "Channel not found",
+				})
+			}
+			c.Status(fiber.StatusInternalServerError)
+			return c.JSON(ErrorResponse{
+				Message: "Failed to retrieve channel",
+			})
+		}
+
+		var channelLogo *models.File
+		if channel.LogoId != nil {
+			if err := repository.DB.First(&channelLogo, *channel.LogoId).Error; err != nil {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Error logo does not exist"})
+			}
+			if strings.Split(channelLogo.MimeType, "/")[0] != "image" {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Logo image file type is not allowed"})
+			}
+		}
+
+		channelResponse := ConvertChannelToResponse(channel, channelLogo)
+
+		tagsResponse, err := GetTagResponsesForPost(post.Id)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+				Message: "Failed to fetch tags for post",
+			})
+		}
+
+		postsResponse = append(postsResponse, ConvertPostToResponse(post, preview, channelResponse, tagsResponse))
 	}
 
 	return c.JSON(DataResponse[[]PostResponse]{
@@ -630,7 +750,6 @@ func GetRecommendedPosts(c *fiber.Ctx) error {
 
 	var posts []models.Post
 	if err := repository.DB.
-		Preload("Tags").
 		Preload("PostImages").
 		Preload("PostFiles").
 		Where("id IN ?", ids).
@@ -656,7 +775,45 @@ func GetRecommendedPosts(c *fiber.Ctx) error {
 				preview = &file
 			}
 		}
-		postsResponse = append(postsResponse, ConvertPostToResponse(post, preview))
+
+		var channel models.Channel
+		if err := repository.DB.Preload("Category").First(&channel, post.ChannelId).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.Status(fiber.StatusNotFound)
+				return c.JSON(fiber.Map{
+					"message": "Channel not found",
+				})
+			}
+			c.Status(fiber.StatusInternalServerError)
+			return c.JSON(ErrorResponse{
+				Message: "Failed to retrieve channel",
+			})
+		}
+
+		var channelLogo *models.File
+		if channel.LogoId != nil {
+			if err := repository.DB.First(&channelLogo, *channel.LogoId).Error; err != nil {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Error logo does not exist"})
+			}
+			if strings.Split(channelLogo.MimeType, "/")[0] != "image" {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(ErrorResponse{
+					Message: "Logo image file type is not allowed"})
+			}
+		}
+
+		channelResponse := ConvertChannelToResponse(channel, channelLogo)
+
+		tagsResponse, err := GetTagResponsesForPost(post.Id)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+				Message: "Failed to fetch tags for post",
+			})
+		}
+
+		postsResponse = append(postsResponse, ConvertPostToResponse(post, preview, channelResponse, tagsResponse))
 	}
 
 	return c.JSON(DataResponse[[]PostResponse]{
@@ -1092,7 +1249,7 @@ func GetPostComments(c *fiber.Ctx) error {
 	})
 }
 
-func ConvertPostToResponse(post models.Post, previewImage *models.File) PostResponse {
+func ConvertPostToResponse(post models.Post, previewImage *models.File, channel *ChannelResponse, tags []TagResponse) PostResponse {
 	var preview *FileResponse
 	if previewImage != nil {
 		preview = &FileResponse{
@@ -1119,7 +1276,7 @@ func ConvertPostToResponse(post models.Post, previewImage *models.File) PostResp
 
 	return PostResponse{
 		Id:            post.Id,
-		ChannelId:     post.ChannelId,
+		Channel:       channel,
 		PreviewImage:  preview,
 		Title:         post.Title,
 		Content:       post.Content,
@@ -1128,7 +1285,19 @@ func ConvertPostToResponse(post models.Post, previewImage *models.File) PostResp
 		ViewsCount:    post.ViewsCount,
 		PostImages:    postImages,
 		PostFiles:     postFiles,
-		Tags:          post.Tags,
+		Tags:          tags,
 		CreatedAt:     post.CreatedAt,
 	}
+}
+
+func GetTagResponsesForPost(postId uint) ([]TagResponse, error) {
+	var tags []TagResponse
+	err := repository.DB.
+		Table("tags").
+		Select("tags.id, tags.category_id, tags.name, categories.color").
+		Joins("LEFT JOIN categories ON tags.category_id = categories.id").
+		Joins("LEFT JOIN post_tags ON post_tags.tag_id = tags.id").
+		Where("post_tags.post_id = ?", postId).
+		Scan(&tags).Error
+	return tags, err
 }

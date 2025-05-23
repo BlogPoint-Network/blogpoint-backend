@@ -2521,8 +2521,8 @@ const docTemplate = `{
         "controllers.PostResponse": {
             "type": "object",
             "properties": {
-                "channelId": {
-                    "type": "integer"
+                "channel": {
+                    "$ref": "#/definitions/controllers.ChannelResponse"
                 },
                 "content": {
                     "type": "string"
@@ -2557,7 +2557,7 @@ const docTemplate = `{
                 "tags": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.Tag"
+                        "$ref": "#/definitions/controllers.TagResponse"
                     }
                 },
                 "title": {
@@ -2707,20 +2707,6 @@ const docTemplate = `{
                 },
                 "userId": {
                     "type": "integer"
-                }
-            }
-        },
-        "models.Tag": {
-            "type": "object",
-            "properties": {
-                "categoryId": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
                 }
             }
         }

@@ -315,8 +315,8 @@ definitions:
     type: object
   controllers.PostResponse:
     properties:
-      channelId:
-        type: integer
+      channel:
+        $ref: '#/definitions/controllers.ChannelResponse'
       content:
         type: string
       createdAt:
@@ -339,7 +339,7 @@ definitions:
         $ref: '#/definitions/controllers.FileResponse'
       tags:
         items:
-          $ref: '#/definitions/models.Tag'
+          $ref: '#/definitions/controllers.TagResponse'
         type: array
       title:
         type: string
@@ -441,15 +441,6 @@ definitions:
         type: integer
       userId:
         type: integer
-    type: object
-  models.Tag:
-    properties:
-      categoryId:
-        type: integer
-      id:
-        type: integer
-      name:
-        type: string
     type: object
 host: localhost:8000
 info:

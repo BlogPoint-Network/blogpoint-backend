@@ -114,7 +114,7 @@ func CreateChannel(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(DataResponse[ChannelResponse]{
-		Data:    ConvertChannelToResponse(channel, logo),
+		Data:    *ConvertChannelToResponse(channel, logo),
 		Message: "Channel created successfully",
 	})
 }
@@ -238,7 +238,7 @@ func EditChannel(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(DataResponse[ChannelResponse]{
-		Data:    ConvertChannelToResponse(channel, logo),
+		Data:    *ConvertChannelToResponse(channel, logo),
 		Message: "Channel edited successfully",
 	})
 }
@@ -614,7 +614,7 @@ func GetUserSubscriptions(c *fiber.Ctx) error {
 
 		repository.DB.Preload("Category").First(&channel, channel.Id)
 
-		channelsResponse = append(channelsResponse, ConvertChannelToResponse(channel, logo))
+		channelsResponse = append(channelsResponse, *ConvertChannelToResponse(channel, logo))
 	}
 
 	return c.JSON(DataResponse[[]ChannelResponse]{
@@ -682,7 +682,7 @@ func GetUserChannels(c *fiber.Ctx) error {
 
 		repository.DB.Preload("Category").First(&channel, channel.Id)
 
-		channelsResponse = append(channelsResponse, ConvertChannelToResponse(channel, logo))
+		channelsResponse = append(channelsResponse, *ConvertChannelToResponse(channel, logo))
 	}
 
 	return c.JSON(DataResponse[[]ChannelResponse]{
@@ -712,7 +712,7 @@ func GetChannel(c *fiber.Ctx) error {
 	}
 
 	var channel models.Channel
-	if err := repository.DB.First(&channel, Id).Error; err != nil {
+	if err := repository.DB.Preload("Category").First(&channel, Id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.Status(fiber.StatusNotFound)
 			return c.JSON(fiber.Map{
@@ -739,10 +739,8 @@ func GetChannel(c *fiber.Ctx) error {
 		}
 	}
 
-	repository.DB.Preload("Category").First(&channel, channel.Id)
-
 	return c.JSON(DataResponse[ChannelResponse]{
-		Data: ConvertChannelToResponse(channel, logo),
+		Data: *ConvertChannelToResponse(channel, logo),
 	})
 }
 
@@ -790,7 +788,7 @@ func GetPopularChannels(c *fiber.Ctx) error {
 
 		repository.DB.Preload("Category").First(&channel, channel.Id)
 
-		channelsResponse = append(channelsResponse, ConvertChannelToResponse(channel, logo))
+		channelsResponse = append(channelsResponse, *ConvertChannelToResponse(channel, logo))
 	}
 
 	return c.JSON(DataResponse[[]ChannelResponse]{
@@ -1148,7 +1146,7 @@ func GetAllTags(c *fiber.Ctx) error {
 	})
 }
 
-func ConvertChannelToResponse(channel models.Channel, file *models.File) ChannelResponse {
+func ConvertChannelToResponse(channel models.Channel, file *models.File) *ChannelResponse {
 	var logo *FileResponse
 	if file != nil {
 		logo = &FileResponse{
@@ -1157,7 +1155,7 @@ func ConvertChannelToResponse(channel models.Channel, file *models.File) Channel
 
 	}
 
-	return ChannelResponse{
+	return &ChannelResponse{
 		Id:          channel.Id,
 		Name:        channel.Name,
 		Description: channel.Description,

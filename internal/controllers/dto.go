@@ -43,18 +43,18 @@ type ChannelResponse struct {
 }
 
 type PostResponse struct {
-	Id            uint           `json:"id"`
-	ChannelId     uint           `json:"channelId"`
-	PreviewImage  *FileResponse  `json:"previewImage"`
-	Title         string         `json:"title"`
-	Content       string         `json:"content"`
-	LikesCount    uint           `json:"likesCount"`
-	DislikesCount uint           `json:"dislikesCount"`
-	ViewsCount    uint           `json:"viewsCount"`
-	PostImages    []FileResponse `json:"postImages"`
-	PostFiles     []FileResponse `json:"postFiles"`
-	Tags          []models.Tag   `json:"tags"`
-	CreatedAt     time.Time      `json:"createdAt"`
+	Id            uint             `json:"id"`
+	Channel       *ChannelResponse `json:"channel"`
+	PreviewImage  *FileResponse    `json:"previewImage"`
+	Title         string           `json:"title"`
+	Content       string           `json:"content"`
+	LikesCount    uint             `json:"likesCount"`
+	DislikesCount uint             `json:"dislikesCount"`
+	ViewsCount    uint             `json:"viewsCount"`
+	PostImages    []FileResponse   `json:"postImages"`
+	PostFiles     []FileResponse   `json:"postFiles"`
+	Tags          []TagResponse    `json:"tags"`
+	CreatedAt     time.Time        `json:"createdAt"`
 }
 
 type CommentResponse struct {
