@@ -1188,6 +1188,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/getReaction/{postId}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Возвращает реакцию (like/dislike) текущего пользователя на указанный пост",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Post"
+                ],
+                "summary": "Получить реакцию на пост",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Id поста",
+                        "name": "postId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DataResponse-controllers_ReactionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/getRecommendedPosts": {
             "get": {
                 "description": "Получает список рекомендуемых постов за последнюю неделю, сортируя по формуле: views + likes*3 - dislikes*2 + comments*2",
@@ -2354,6 +2412,17 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.DataResponse-controllers_ReactionResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/controllers.ReactionResponse"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.DataResponse-controllers_StatisticsResponse": {
             "type": "object",
             "properties": {
@@ -2565,6 +2634,23 @@ const docTemplate = `{
                 },
                 "viewsCount": {
                     "type": "integer"
+                }
+            }
+        },
+        "controllers.ReactionResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "postId": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "reaction": {
+                    "type": "string",
+                    "example": "like"
                 }
             }
         },

@@ -203,6 +203,13 @@ definitions:
       message:
         type: string
     type: object
+  controllers.DataResponse-controllers_ReactionResponse:
+    properties:
+      data:
+        $ref: '#/definitions/controllers.ReactionResponse'
+      message:
+        type: string
+    type: object
   controllers.DataResponse-controllers_StatisticsResponse:
     properties:
       data:
@@ -345,6 +352,18 @@ definitions:
         type: string
       viewsCount:
         type: integer
+    type: object
+  controllers.ReactionResponse:
+    properties:
+      id:
+        example: 1
+        type: integer
+      postId:
+        example: 1
+        type: integer
+      reaction:
+        example: like
+        type: string
     type: object
   controllers.RegisterRequest:
     properties:
@@ -1204,6 +1223,44 @@ paths:
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
       summary: Get posts
+      tags:
+      - Post
+  /api/getReaction/{postId}:
+    get:
+      description: Возвращает реакцию (like/dislike) текущего пользователя на указанный
+        пост
+      parameters:
+      - description: Id поста
+        in: path
+        name: postId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.DataResponse-controllers_ReactionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Получить реакцию на пост
       tags:
       - Post
   /api/getRecommendedPosts:

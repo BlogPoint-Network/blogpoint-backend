@@ -97,6 +97,12 @@ type TagResponse struct {
 	Color      string `json:"color" example:"#FF9800"`
 }
 
+type ReactionResponse struct {
+	Id       uint   `json:"id" example:"1"`
+	PostId   uint   `json:"postId" example:"1"`
+	Reaction string `json:"reaction" example:"like"`
+}
+
 type RegisterRequest struct {
 	Login    string `json:"login" example:"johndoe"`
 	Password string `json:"password" example:"secret123"`

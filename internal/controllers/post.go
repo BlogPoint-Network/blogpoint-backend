@@ -929,6 +929,96 @@ func SetReaction(c *fiber.Ctx) error {
 	})
 }
 
+// GetReaction получает реакцию пользователя (лайк/дизлайк) на пост.
+// @Summary Получить реакцию на пост
+// @Description Возвращает реакцию (like/dislike) текущего пользователя на указанный пост
+// @Tags Post
+// @Produce json
+// @Param postId path int true "Id поста"
+// @Success 200 {object} DataResponse[ReactionResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/getReaction/{postId} [get]
+// @Security ApiKeyAuth
+func GetReaction(c *fiber.Ctx) error {
+	token, err := jwt.ParseWithClaims(c.Cookies("jwt"), jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Unauthenticated",
+		})
+	}
+
+	strId, ok := token.Claims.(jwt.MapClaims)["iss"].(string)
+	if !ok {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid token",
+		})
+	}
+
+	userId, err := strconv.ParseUint(strId, 10, 32)
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid issuer id",
+		})
+	}
+
+	postId, err := strconv.ParseUint(c.Params("postId"), 10, 64)
+	if err != nil || postId == 0 {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(ErrorResponse{
+			Message: "Invalid post id",
+		})
+	}
+
+	var post models.Post
+	if err := repository.DB.Preload("PostImages").Preload("PostFiles").
+		First(&post, postId).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "Post not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to fetch post",
+		})
+	}
+
+	var reaction models.PostReaction
+	err = repository.DB.Where("post_id = ? AND user_id = ?", postId, userId).First(&reaction).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+			Message: "Reaction not found",
+		})
+	}
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Message: "Failed to fetch reaction",
+		})
+	}
+
+	resp := ReactionResponse{
+		Id:     reaction.Id,
+		PostId: reaction.PostId,
+	}
+	if reaction.Reaction {
+		resp.Reaction = "like"
+	} else {
+		resp.Reaction = "dislike"
+	}
+
+	return c.JSON(DataResponse[ReactionResponse]{
+		Data: resp,
+	})
+}
+
 // CreateComment создает комментарий к посту или ответ на комментарий
 // @Summary      Создание комментария
 // @Description  Создает новый комментарий к посту или ответ на существующий комментарий
